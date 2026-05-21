@@ -156,7 +156,7 @@ const dbAdapter = {
           const cursor = event.target.result;
           if (cursor) {
             const item = cursor.value;
-            const updated = new Date(item.updated_at || item.timestamp);
+            const updated = new Date(item.updated_at || item.created_at || item.timestamp);
             if (updated > cutoff) {
               changes[storeName].push(item);
             }
@@ -192,7 +192,7 @@ const dbAdapter = {
         });
 
         // Upsert if server version is newer or local doesn't exist
-        if (!local || new Date(item.updated_at || item.timestamp) > new Date(local.updated_at || local.timestamp)) {
+        if (!local || new Date(item.updated_at || item.created_at || item.timestamp) > new Date(local.updated_at || local.created_at || local.timestamp)) {
           await new Promise((res, rej) => {
             const req = store.put(item);
             req.onsuccess = () => { appliedCount++; res(); };
@@ -1664,53 +1664,7 @@ document.getElementById('btn-sync-now').onclick = async () => {
   }
 };
 
-// CSV Export
-document.getElementById('btn-export-csv').onclick = async () => {
-  if (!currentUser) return;
 
-  const allPunches = await dbAdapter.getAll('punches');
-  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
-
-  let csvContent = 'data:text/csv;charset=utf-8,';
-  csvContent += 'Datum;Kommen;Gehen;Pause (Minuten);Ist-Stunden;Soll-Stunden\n';
-
-  // Group punches by date
-  const daysMap = {};
-  userPunches.forEach(p => {
-    const dateStr = p.start_time.split('T')[0];
-    if (!daysMap[dateStr]) daysMap[dateStr] = [];
-    daysMap[dateStr].push(p);
-  });
-
-  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-
-  Object.keys(daysMap).sort().forEach(dateStr => {
-    const dayPunches = daysMap[dateStr];
-    const dateObj = Temporal.PlainDate.from(dateStr);
-    const wday = dateObj.dayOfWeek;
-    const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
-
-    const stats = calculateDayDetails(soll, dayPunches, null);
-
-    const firstPunch = dayPunches[0];
-    const lastPunch = dayPunches[dayPunches.length - 1];
-
-    const startLocal = new Date(firstPunch.start_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
-    const endLocal = lastPunch.end_time 
-      ? new Date(lastPunch.end_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' })
-      : 'Aktiv';
-
-    csvContent += `${dateStr};${startLocal};${endLocal};${stats.totalBreakMinutes};${stats.istHours.toFixed(2).replace('.', ',')};${stats.sollHours.toFixed(2).replace('.', ',')}\n`;
-  });
-
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `Stempelo_Export_${currentUser.name}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
 
 // Backup Dialog Trigger
 document.getElementById('btn-export-backup').onclick = async () => {
