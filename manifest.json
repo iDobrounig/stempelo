@@ -1,0 +1,24 @@
+{
+  "name": "Arbeitszeit Stempeluhr",
+  "short_name": "Stempeluhr",
+  "description": "Premium Stempeluhr-App mit Multi-User-Support, Wochenstundenberechnung und Offline-Verfügbarkeit.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

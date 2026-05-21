@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arbeitszeit Stempeluhr</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#121212">
+  <link rel="apple-touch-icon" href="assets/icon.png">
+
+  <!-- Font and Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+
+  <!-- FOUC Color-Scheme Prevention -->
+  <meta name="color-scheme" content="light dark">
+  <script>
+    {
+      const colorScheme = localStorage.getItem("color-scheme") || 'dark';
+      document.documentElement.setAttribute('data-theme', colorScheme);
+      document.documentElement.style.colorScheme = colorScheme;
+    }
+  </script>
+</head>
+<body>
+
+  <!-- App Wrapper -->
+  <div id="app-container" class="app-layout">
+    
+    <!-- 1. Lock Screen (PIN Entry & User Switcher) -->
+    <section id="lock-screen" class="view active">
+      <div class="lock-card glass">
+        <div class="app-header-logo">
+          <img src="assets/icon.png" alt="App Logo" class="app-logo">
+          <h1>Stempeluhr</h1>
+          <p>Bitte wähle dein Profil</p>
+        </div>
+
+        <div class="user-select-container">
+          <select id="user-select" class="custom-select">
+            <!-- Dynamically populated -->
+          </select>
+          <button id="btn-show-create-user" class="btn secondary small">+ Neuer Benutzer</button>
+        </div>
+
+        <!-- PIN Entry Area (Visible only if user selected and has PIN) -->
+        <div id="pin-entry-area" class="pin-area">
+          <div class="pin-dots">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+          <div class="pin-pad">
+            <button class="pin-btn" data-val="1">1</button>
+            <button class="pin-btn" data-val="2">2</button>
+            <button class="pin-btn" data-val="3">3</button>
+            <button class="pin-btn" data-val="4">4</button>
+            <button class="pin-btn" data-val="5">5</button>
+            <button class="pin-btn" data-val="6">6</button>
+            <button class="pin-btn" data-val="7">7</button>
+            <button class="pin-btn" data-val="8">8</button>
+            <button class="pin-btn" data-val="9">9</button>
+            <button class="pin-btn action-clear" id="pin-clear">C</button>
+            <button class="pin-btn" data-val="0">0</button>
+            <button class="pin-btn action-ok" id="pin-ok">OK</button>
+          </div>
+          <p id="pin-error" class="error-text hidden">Falscher PIN! Bitte erneut versuchen.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Main Application Screen -->
+    <div id="main-screen" class="main-layout hidden">
+      <header class="app-header glass">
+        <div class="header-profile">
+          <div class="profile-info">
+            <span class="profile-label">Mitarbeiter</span>
+            <h2 id="current-user-name">Lade...</h2>
+          </div>
+        </div>
+        
+        <div class="header-actions">
+          <button id="btn-lock-app" class="btn secondary icon-btn" title="Bildschirm sperren">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </button>
+          <button id="btn-theme-toggle" class="btn secondary icon-btn" title="Design wechseln">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <!-- 2a. Tab Panel: Stempeluhr (Default) -->
+        <section id="tab-punch" class="tab-content active">
+          <!-- Circular Clock Card -->
+          <div class="punch-card glass">
+            <div id="punch-status-indicator" class="status-badge stopped">Nicht eingestempelt</div>
+            
+            <div class="clock-display">
+              <span id="live-timer">00:00:00</span>
+              <p id="punch-subtitle">Heutige Arbeitszeit</p>
+            </div>
+
+            <div class="punch-controls">
+              <button id="btn-punch-in" class="btn primary large">Einstempeln</button>
+              <button id="btn-punch-out" class="btn danger large hidden">Ausstempeln</button>
+              <button id="btn-break-toggle" class="btn warning large hidden">Pause starten</button>
+            </div>
+          </div>
+
+          <!-- Daily Overview Dashboard -->
+          <div class="grid-stats">
+            <div class="stat-card glass">
+              <span class="stat-title">Soll Heute</span>
+              <span class="stat-value" id="stats-soll-today">0h</span>
+            </div>
+            <div class="stat-card glass">
+              <span class="stat-title">Ist Heute (Netto)</span>
+              <span class="stat-value" id="stats-ist-today">0h</span>
+            </div>
+            <div class="stat-card glass">
+              <span class="stat-title">Pause Heute</span>
+              <span class="stat-value text-warning" id="stats-pause-today">0h</span>
+            </div>
+            <div class="stat-card glass">
+              <span class="stat-title">Tagessaldo</span>
+              <span class="stat-value" id="stats-saldo-today">+0h</span>
+            </div>
+          </div>
+
+          <!-- Active Break Deductions Alert -->
+          <div id="alert-break-deductions" class="alert-info glass hidden">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <p><strong>Gesetzlicher Pausenabzug (AT):</strong> Da du heute über 6 Stunden gearbeitet hast, wurden automatisch 30 Minuten Pause abgezogen.</p>
+          </div>
+        </section>
+
+        <!-- 2b. Tab Panel: Historie & Zeiten -->
+        <section id="tab-history" class="tab-content">
+          <div class="section-header">
+            <h3>Arbeitszeiten-Protokoll</h3>
+            <div class="history-actions">
+              <button id="btn-add-manual-punch" class="btn secondary small">+ Zeit eintragen</button>
+              <button id="btn-add-timeoff" class="btn secondary small">+ Freier Tag</button>
+            </div>
+          </div>
+
+          <div class="list-container glass scroller">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Datum</th>
+                    <th>Typ</th>
+                    <th>Arbeitszeit (Kommen - Gehen)</th>
+                    <th>Ist (Netto)</th>
+                    <th>Pause (gest./ges.)</th>
+                    <th>Soll</th>
+                    <th>Status</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="history-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2c. Tab Panel: Auswertung / Berichte -->
+        <section id="tab-reports" class="tab-content">
+          <div class="section-header">
+            <h3>Auswertung & Berichte</h3>
+            <div class="report-filters">
+              <select id="report-period-select" class="custom-select small">
+                <option value="current-week">Aktuelle Woche</option>
+                <option value="current-month" selected>Aktueller Monat</option>
+                <option value="last-month">Letzter Monat</option>
+                <option value="all-time">Gesamt</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Aggregated Statistics Cards -->
+          <div class="report-summary-grid">
+            <div class="report-stat-card glass border-blue">
+              <span class="report-title">Soll-Arbeitszeit</span>
+              <span class="report-val" id="rep-soll-hours">0,0h</span>
+            </div>
+            <div class="report-stat-card glass border-green">
+              <span class="report-title">Ist-Arbeitszeit (Netto)</span>
+              <span class="report-val" id="rep-ist-hours">0,0h</span>
+            </div>
+            <div class="report-stat-card glass" id="rep-saldo-card">
+              <span class="report-title">Zeitsaldo</span>
+              <span class="report-val" id="rep-saldo-hours">0,0h</span>
+            </div>
+            <div class="report-stat-card glass border-orange">
+              <span class="report-title">Urlaub & Freie Tage</span>
+              <span class="report-val" id="rep-free-days">0 Tage</span>
+              <span class="report-subval" id="rep-free-days-breakdown">Vac: 0 | Sick: 0 | Hol: 0</span>
+            </div>
+          </div>
+
+          <!-- Audit Log Trail (History) -->
+          <div class="audit-log-section">
+            <h4>Änderungshistorie (Audit Log)</h4>
+            <div class="audit-log-list scroller glass" id="audit-log-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </section>
+
+        <!-- 2d. Tab Panel: Einstellungen -->
+        <section id="tab-settings" class="tab-content">
+          <div class="settings-grid">
+            <!-- User configuration -->
+            <div class="settings-card glass">
+              <h3>Profil-Einstellungen</h3>
+              <form id="form-user-settings">
+                <div class="form-group">
+                  <label for="set-user-name">Name</label>
+                  <input type="text" id="set-user-name" required>
+                </div>
+                <div class="form-group">
+                  <label for="set-user-pin">4-stellige PIN</label>
+                  <input type="password" id="set-user-pin" pattern="[0-9]{4}" placeholder="Unverändert lassen..." maxlength="4">
+                </div>
+                
+                <h4 class="settings-sub">Individuelle Soll-Stunden pro Wochentag</h4>
+                <div class="soll-week-inputs">
+                  <div class="soll-day">
+                    <label for="soll-mon">Mo</label>
+                    <input type="number" id="soll-mon" min="0" max="24" step="0.1" required>
+                  </div>
+                  <div class="soll-day">
+                    <label for="soll-tue">Di</label>
+                    <input type="number" id="soll-tue" min="0" max="24" step="0.1" required>
+                  </div>
+                  <div class="soll-day">
+                    <label for="soll-wed">Mi</label>
+                    <input type="number" id="soll-wed" min="0" max="24" step="0.1" required>
+                  </div>
+                  <div class="soll-day">
+                    <label for="soll-thu">Do</label>
+                    <input type="number" id="soll-thu" min="0" max="24" step="0.1" required>
+                  </div>
+                  <div class="soll-day">
+                    <label for="soll-fri">Fr</label>
+                    <input type="number" id="soll-fri" min="0" max="24" step="0.1" required>
+                  </div>
+                  <div class="soll-day">
+                    <label for="soll-sat">Sa</label>
+                    <input type="number" id="soll-sat" min="0" max="24" step="0.1" required>
+                  </div>
+                  <div class="soll-day">
+                    <label for="soll-sun">So</label>
+                    <input type="number" id="soll-sun" min="0" max="24" step="0.1" required>
+                  </div>
+                </div>
+
+                <button type="submit" class="btn primary">Einstellungen speichern</button>
+              </form>
+            </div>
+
+            <!-- Server Sync Config -->
+            <div class="settings-card glass">
+              <h3>Synchronisation (Cloud / SQLite)</h3>
+              <div class="sync-status-box">
+                <p>Status: <strong id="sync-status-text">Nicht verbunden</strong></p>
+                <p>Letzter Abgleich: <span id="sync-last-time">Nie</span></p>
+              </div>
+              <div class="form-group">
+                <label for="sync-server-url">Server URL</label>
+                <input type="url" id="sync-server-url" placeholder="http://localhost:3000">
+              </div>
+              <div class="sync-actions">
+                <button id="btn-sync-now" class="btn primary">Jetzt abgleichen</button>
+                <button id="btn-export-csv" class="btn secondary">Als CSV exportieren</button>
+                <button id="btn-export-backup" class="btn secondary">Backup (JSON) laden/speichern</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Navigation Bar -->
+      <nav class="app-nav glass">
+        <button class="nav-item active" data-tab="tab-punch">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span>Stempel</span>
+        </button>
+        <button class="nav-item" data-tab="tab-history">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>Zeiten</span>
+        </button>
+        <button class="nav-item" data-tab="tab-reports">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          <span>Berichte</span>
+        </button>
+        <button class="nav-item" data-tab="tab-settings">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <span>Optionen</span>
+        </button>
+      </nav>
+    </div>
+
+  </div>
+
+  <!-- Native Modals (dialog) -->
+  
+  <!-- A. Create User Modal -->
+  <dialog id="dlg-create-user" class="glass-dialog">
+    <form method="dialog" id="form-create-user">
+      <h3>Neuen Benutzer erstellen</h3>
+      <div class="form-group">
+        <label for="new-user-name">Name</label>
+        <input type="text" id="new-user-name" required>
+      </div>
+      <div class="form-group">
+        <label for="new-user-pin">4-stellige PIN</label>
+        <input type="password" id="new-user-pin" pattern="[0-9]{4}" required maxlength="4" placeholder="z. B. 1234">
+      </div>
+      
+      <h4 class="settings-sub">Wochenstunden (Soll)</h4>
+      <div class="soll-week-inputs small-inputs">
+        <div class="soll-day">
+          <label for="new-soll-mon">Mo</label>
+          <input type="number" id="new-soll-mon" min="0" max="24" step="0.5" value="8" required>
+        </div>
+        <div class="soll-day">
+          <label for="new-soll-tue">Di</label>
+          <input type="number" id="new-soll-tue" min="0" max="24" step="0.5" value="8" required>
+        </div>
+        <div class="soll-day">
+          <label for="new-soll-wed">Mi</label>
+          <input type="number" id="new-soll-wed" min="0" max="24" step="0.5" value="8" required>
+        </div>
+        <div class="soll-day">
+          <label for="new-soll-thu">Do</label>
+          <input type="number" id="new-soll-thu" min="0" max="24" step="0.5" value="8" required>
+        </div>
+        <div class="soll-day">
+          <label for="new-soll-fri">Fr</label>
+          <input type="number" id="new-soll-fri" min="0" max="24" step="0.5" value="6.5" required>
+        </div>
+        <div class="soll-day">
+          <label for="new-soll-sat">Sa</label>
+          <input type="number" id="new-soll-sat" min="0" max="24" step="0.5" value="0" required>
+        </div>
+        <div class="soll-day">
+          <label for="new-soll-sun">So</label>
+          <input type="number" id="new-soll-sun" min="0" max="24" step="0.5" value="0" required>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" id="btn-cancel-create-user">Abbrechen</button>
+        <button type="submit" class="btn primary">Erstellen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- B. Edit / Add Manual Time Entry Modal -->
+  <dialog id="dlg-manual-punch" class="glass-dialog">
+    <form method="dialog" id="form-manual-punch">
+      <h3 id="manual-punch-title">Arbeitszeit eintragen</h3>
+      <input type="hidden" id="edit-punch-id">
+      
+      <div class="form-group">
+        <label for="manual-date">Datum</label>
+        <input type="date" id="manual-date" required>
+      </div>
+      <div class="form-group-row">
+        <div class="form-group">
+          <label for="manual-start-time">Kommen (Beginn)</label>
+          <input type="time" id="manual-start-time" required>
+        </div>
+        <div class="form-group">
+          <label for="manual-end-time">Gehen (Ende)</label>
+          <input type="time" id="manual-end-time" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="manual-break">Gestempelte Pause (in Minuten)</label>
+        <input type="number" id="manual-break" min="0" max="1440" value="0" required>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" id="btn-cancel-manual-punch">Abbrechen</button>
+        <button type="button" class="btn danger hidden" id="btn-delete-punch">Eintrag löschen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- C. Add Time Off Modal -->
+  <dialog id="dlg-timeoff" class="glass-dialog">
+    <form method="dialog" id="form-timeoff">
+      <h3>Freien Tag / Fehlzeit eintragen</h3>
+      <div class="form-group">
+        <label for="timeoff-date">Datum</label>
+        <input type="date" id="timeoff-date" required>
+      </div>
+      <div class="form-group">
+        <label for="timeoff-type">Art der Abwesenheit</label>
+        <select id="timeoff-type" class="custom-select" required>
+          <option value="vacation">Urlaubstag</option>
+          <option value="sick">Krankheitsfall (Krankstand)</option>
+          <option value="holiday">Feiertag</option>
+          <option value="compensation">Zeitausgleich</option>
+        </select>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" id="btn-cancel-timeoff">Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- D. Backup Import / Export Dialog -->
+  <dialog id="dlg-backup" class="glass-dialog">
+    <form method="dialog">
+      <h3>Backup verwalten</h3>
+      <p>Hier kannst du alle lokalen Daten als Backup sichern oder wiederherstellen.</p>
+      
+      <div class="form-group">
+        <label for="backup-json-text">Backup-Daten (JSON)</label>
+        <textarea id="backup-json-text" class="custom-textarea" rows="6" placeholder="Backup-JSON hier einfügen..."></textarea>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" id="btn-close-backup">Schließen</button>
+        <button type="button" class="btn primary" id="btn-import-backup-action">Importieren</button>
+        <button type="button" class="btn primary" id="btn-copy-backup-action">Kopieren & Download</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Scripts -->
+  <script type="module" src="app.js"></script>
+
+</body>
+</html>
