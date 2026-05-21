@@ -778,6 +778,205 @@ async function updateHistoryTab() {
   }
 }
 
+/**
+ * Exports the currently filtered work hours protocol to a CSV file.
+ */
+async function exportHistoryToCSV() {
+  if (!currentUser) return;
+
+  const filterPeriod = document.getElementById('filter-period').value;
+  const filterStartDateVal = document.getElementById('filter-start-date').value;
+  const filterEndDateVal = document.getElementById('filter-end-date').value;
+  const filterType = document.getElementById('filter-type').value;
+  const filterManualOnly = document.getElementById('filter-manual-only').checked;
+  const filterAutobreakOnly = document.getElementById('filter-autobreak-only').checked;
+
+  let filterStart = null;
+  let filterEnd = null;
+  const today = Temporal.Now.plainDateISO();
+
+  if (filterPeriod === 'current-week') {
+    const wday = today.dayOfWeek;
+    filterStart = today.subtract({ days: wday - 1 });
+    filterEnd = filterStart.add({ days: 6 });
+  } else if (filterPeriod === 'current-month') {
+    filterStart = today.with({ day: 1 });
+    filterEnd = today.with({ day: today.daysInMonth });
+  } else if (filterPeriod === 'last-month') {
+    const prevMonth = today.subtract({ months: 1 });
+    filterStart = prevMonth.with({ day: 1 });
+    filterEnd = prevMonth.with({ day: prevMonth.daysInMonth });
+  } else if (filterPeriod === 'custom') {
+    if (filterStartDateVal) filterStart = Temporal.PlainDate.from(filterStartDateVal);
+    if (filterEndDateVal) filterEnd = Temporal.PlainDate.from(filterEndDateVal);
+  }
+
+  const allPunches = await dbAdapter.getAll('punches');
+  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+
+  const allTimeOff = await dbAdapter.getAll('time_off');
+  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+
+  const daysMap = {};
+
+  userPunches.forEach(punch => {
+    const dateStr = punch.start_time.split('T')[0];
+    if (!daysMap[dateStr]) daysMap[dateStr] = { punches: [], timeOff: null };
+    daysMap[dateStr].punches.push(punch);
+  });
+
+  userTimeOff.forEach(off => {
+    if (!daysMap[off.date]) daysMap[off.date] = { punches: [], timeOff: null };
+    daysMap[off.date].timeOff = off;
+  });
+
+  // Sort chronological ascending for CSV export
+  const dates = Object.keys(daysMap).sort((a, b) => a.localeCompare(b));
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+  let totalIstHours = 0;
+  let totalSollHours = 0;
+  let totalManualBreak = 0;
+  let totalAutoBreak = 0;
+  let totalSaldoHours = 0;
+
+  const csvRows = [];
+
+  // Headers matching table
+  csvRows.push([
+    '"Datum"',
+    '"Typ"',
+    '"Arbeitszeit (Kommen - Gehen)"',
+    '"Ist (Netto)"',
+    '"Pause (gest./ges.)"',
+    '"Soll"',
+    '"Status/Saldo"'
+  ].join(';'));
+
+  const escapeCsv = (str) => {
+    if (str === null || str === undefined) return '""';
+    const val = String(str).replace(/"/g, '""');
+    return `"${val}"`;
+  };
+
+  let renderedCount = 0;
+
+  dates.forEach(dateStr => {
+    const dateData = daysMap[dateStr];
+    const dateObj = Temporal.PlainDate.from(dateStr);
+    const wday = dateObj.dayOfWeek;
+    const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+
+    const stats = calculateDayDetails(soll, dateData.punches, dateData.timeOff);
+
+    // Apply filters
+    if (filterStart && Temporal.PlainDate.compare(dateObj, filterStart) < 0) return;
+    if (filterEnd && Temporal.PlainDate.compare(dateObj, filterEnd) > 0) return;
+
+    if (filterType !== 'all') {
+      if (filterType === 'work') {
+        if (stats.timeOffType) return;
+      } else {
+        if (stats.timeOffType !== filterType) return;
+      }
+    }
+
+    if (filterManualOnly) {
+      const hasManual = dateData.punches.some(p => p.manual_edit === 1 || p.manual_edit === true);
+      if (!hasManual) return;
+    }
+
+    if (filterAutobreakOnly) {
+      if (stats.autoBreakMinutes <= 0) return;
+    }
+
+    // Accumulate sums
+    totalIstHours += stats.istHours;
+    totalSollHours += stats.sollHours;
+    totalManualBreak += stats.manualBreakMinutes;
+    totalAutoBreak += stats.autoBreakMinutes;
+    totalSaldoHours += stats.saldoHours;
+
+    renderedCount++;
+
+    const dateStrFormatted = `${dateObj.toLocaleString('de', { weekday: 'short' })}, ${dateObj.toLocaleString('de', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    const typeLabel = stats.timeOffType ? stats.statusText : 'Arbeit';
+
+    let punchTimes = '-';
+    if (!(stats.timeOffType && !isCreditedWorkDone(dateData.punches))) {
+      punchTimes = dateData.punches.map(p => {
+        const start = new Date(p.start_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
+        const end = p.end_time 
+          ? new Date(p.end_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' })
+          : 'Aktiv...';
+        return `${start} - ${end}`;
+      }).join(', ');
+      if (!punchTimes) punchTimes = '-';
+    }
+
+    const istStr = formatHours(stats.istHours);
+    const autoBreakStr = stats.autoBreakMinutes > 0 ? ` (+${stats.autoBreakMinutes}m ges.)` : '';
+    const breakStr = `${stats.manualBreakMinutes}m${autoBreakStr}`;
+    const sollStr = formatHours(stats.sollHours);
+    const saldoStr = formatHours(stats.saldoHours);
+
+    csvRows.push([
+      escapeCsv(dateStrFormatted),
+      escapeCsv(typeLabel),
+      escapeCsv(punchTimes),
+      escapeCsv(istStr),
+      escapeCsv(breakStr),
+      escapeCsv(sollStr),
+      escapeCsv(saldoStr)
+    ].join(';'));
+  });
+
+  if (renderedCount === 0) {
+    csvRows.push([
+      escapeCsv('Keine Einträge für die gewählten Filter gefunden.'),
+      '""', '""', '""', '""', '""', '""'
+    ].join(';'));
+  } else {
+    // Sum footer row
+    const autoBreakStr = totalAutoBreak > 0 ? ` (+${totalAutoBreak}m ges.)` : '';
+    const totalBreakStr = `${totalManualBreak}m${autoBreakStr}`;
+    csvRows.push([
+      escapeCsv('Gesamt (gefiltert)'),
+      '""',
+      escapeCsv('-'),
+      escapeCsv(formatHours(totalIstHours)),
+      escapeCsv(totalBreakStr),
+      escapeCsv(formatHours(totalSollHours)),
+      escapeCsv(formatHours(totalSaldoHours))
+    ].join(';'));
+  }
+
+  // Generate file with BOM for UTF-8 compatibility in Excel
+  const csvContent = '\uFEFF' + csvRows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  
+  const startFileStr = filterStart ? filterStart.toString() : 'gesamt';
+  const endFileStr = filterEnd ? filterEnd.toString() : 'heute';
+  const sanitizedUserName = currentUser.name.toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/(^_|_$)/g, '');
+    
+  link.download = `stempelo_export_${sanitizedUserName}_${startFileStr}_bis_${endFileStr}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function isCreditedWorkDone(punches) {
   return punches && punches.length > 0;
 }
@@ -1439,6 +1638,7 @@ document.getElementById('filter-end-date').onchange = () => updateHistoryTab();
 document.getElementById('filter-type').onchange = () => updateHistoryTab();
 document.getElementById('filter-manual-only').onchange = () => updateHistoryTab();
 document.getElementById('filter-autobreak-only').onchange = () => updateHistoryTab();
+document.getElementById('btn-export-csv').onclick = () => exportHistoryToCSV();
 
 
 // Sync triggers
