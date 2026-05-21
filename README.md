@@ -52,7 +52,7 @@ npm install
 ### 2. Server starten
 Starte den Node.js Express-Server:
 ```bash
-node server.js
+npm start
 ```
 Der Server läuft standardmäßig auf Port `8054`. Die SQLite-Datenbankdatei `data.sqlite` wird beim ersten Start automatisch erzeugt und eingerichtet.
 

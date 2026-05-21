@@ -3,3 +3,5 @@ data.sqlite
 *.sqlite
 *.db
 .DS_Store
+.idea/
+scratch/
