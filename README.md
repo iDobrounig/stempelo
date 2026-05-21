@@ -54,13 +54,13 @@ Starte den Node.js Express-Server:
 ```bash
 npm start
 ```
-Der Server läuft standardmäßig auf Port `8054`. Die SQLite-Datenbankdatei `data.sqlite` wird beim ersten Start automatisch erzeugt und eingerichtet.
+Der Server läuft standardmäßig auf Port `8055`. Die SQLite-Datenbankdatei `data.sqlite` wird beim ersten Start automatisch erzeugt und eingerichtet.
 
 ### 3. App im Browser aufrufen
 Öffne deinen Webbrowser und rufe folgende Adresse auf:
-- [http://localhost:8054](http://localhost:8054)
+- [http://localhost:8055](http://localhost:8055)
 
 *Tipp*: Im Browser kannst du die App über das Plus-Symbol in der Adressleiste direkt als App auf deinem Betriebssystem (Desktop/Mobil) installieren.
 
 ### 4. Synchronisation einrichten
-Gehe in der App auf **Optionen** (Zahnrad-Symbol) und trage unter **Synchronisation** die Server-URL ein (z. B. `http://localhost:8054`). Klicke danach auf **Jetzt abgleichen**.
+Gehe in der App auf **Optionen** (Zahnrad-Symbol) und trage unter **Synchronisation** die Server-URL ein (z. B. `http://localhost:8055`). Klicke danach auf **Jetzt abgleichen**.
