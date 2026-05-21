@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8054;
 const DB_PATH = path.join(__dirname, 'data.sqlite');
 
 app.use(cors());
