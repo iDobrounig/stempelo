@@ -1365,7 +1365,7 @@ document.getElementById('btn-export-csv').onclick = async () => {
   const encodedUri = encodeURI(csvContent);
   const link = document.createElement('a');
   link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `Stempeluhr_Export_${currentUser.name}.csv`);
+  link.setAttribute('download', `Stempelo_Export_${currentUser.name}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

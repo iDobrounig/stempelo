@@ -1,7 +1,7 @@
 {
-  "name": "Arbeitszeit Stempeluhr",
-  "short_name": "Stempeluhr",
-  "description": "Premium Stempeluhr-App mit Multi-User-Support, Wochenstundenberechnung und Offline-Verfügbarkeit.",
+  "name": "Stempelo",
+  "short_name": "Stempelo",
+  "description": "Premium Stempelo-App mit Multi-User-Support, Wochenstundenberechnung und Offline-Verfügbarkeit.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#121212",

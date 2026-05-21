@@ -1,6 +1,6 @@
-# PWA Stempeluhr (Arbeitszeiterfassung)
+# Stempelo (PWA Arbeitszeiterfassung)
 
-Eine moderne, offline-fähige Progressive Web App (PWA) zur Arbeitszeiterfassung ("Stempeluhr") mit Multi-User-Support, flexiblem Wochentag-Soll, österreichischer Pausenregelung und SQLite-Synchronisation.
+Eine moderne, offline-fähige Progressive Web App (PWA) zur Arbeitszeiterfassung mit Multi-User-Support, flexiblem Wochentag-Soll, österreichischer Pausenregelung und SQLite-Synchronisation.
 
 ---
 
