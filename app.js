@@ -522,6 +522,33 @@ async function updateHistoryTab() {
   const tbody = document.getElementById('history-table-body');
   tbody.innerHTML = '';
 
+  const filterPeriod = document.getElementById('filter-period').value;
+  const filterStartDateVal = document.getElementById('filter-start-date').value;
+  const filterEndDateVal = document.getElementById('filter-end-date').value;
+  const filterType = document.getElementById('filter-type').value;
+  const filterManualOnly = document.getElementById('filter-manual-only').checked;
+  const filterAutobreakOnly = document.getElementById('filter-autobreak-only').checked;
+
+  let filterStart = null;
+  let filterEnd = null;
+  const today = Temporal.Now.plainDateISO();
+
+  if (filterPeriod === 'current-week') {
+    const wday = today.dayOfWeek;
+    filterStart = today.subtract({ days: wday - 1 });
+    filterEnd = filterStart.add({ days: 6 });
+  } else if (filterPeriod === 'current-month') {
+    filterStart = today.with({ day: 1 });
+    filterEnd = today.with({ day: today.daysInMonth });
+  } else if (filterPeriod === 'last-month') {
+    const prevMonth = today.subtract({ months: 1 });
+    filterStart = prevMonth.with({ day: 1 });
+    filterEnd = prevMonth.with({ day: prevMonth.daysInMonth });
+  } else if (filterPeriod === 'custom') {
+    if (filterStartDateVal) filterStart = Temporal.PlainDate.from(filterStartDateVal);
+    if (filterEndDateVal) filterEnd = Temporal.PlainDate.from(filterEndDateVal);
+  }
+
   const allPunches = await dbAdapter.getAll('punches');
   const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
 
@@ -548,6 +575,7 @@ async function updateHistoryTab() {
   const dates = Object.keys(daysMap).sort((a, b) => b.localeCompare(a));
 
   const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  let renderedCount = 0;
 
   dates.forEach(dateStr => {
     const dateData = daysMap[dateStr];
@@ -558,6 +586,33 @@ async function updateHistoryTab() {
     const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
 
     const stats = calculateDayDetails(soll, dateData.punches, dateData.timeOff);
+
+    // Apply filters
+    // 1. Date Filter
+    if (filterStart && Temporal.PlainDate.compare(dateObj, filterStart) < 0) return;
+    if (filterEnd && Temporal.PlainDate.compare(dateObj, filterEnd) > 0) return;
+
+    // 2. Type Filter
+    if (filterType !== 'all') {
+      if (filterType === 'work') {
+        if (stats.timeOffType) return;
+      } else {
+        if (stats.timeOffType !== filterType) return;
+      }
+    }
+
+    // 3. Manual Corrections Filter
+    if (filterManualOnly) {
+      const hasManual = dateData.punches.some(p => p.manual_edit === 1 || p.manual_edit === true);
+      if (!hasManual) return;
+    }
+
+    // 4. Automatic Break Filter
+    if (filterAutobreakOnly) {
+      if (stats.autoBreakMinutes <= 0) return;
+    }
+
+    renderedCount++;
 
     const tr = document.createElement('tr');
     
@@ -656,6 +711,16 @@ async function updateHistoryTab() {
 
     tbody.appendChild(tr);
   });
+
+  if (renderedCount === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 8;
+    td.className = 'empty-filter-row';
+    td.textContent = 'Keine Einträge für die gewählten Filter gefunden.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
 }
 
 function isCreditedWorkDone(punches) {
@@ -1299,6 +1364,27 @@ document.getElementById('btn-show-create-user').onclick = () => {
 document.getElementById('report-period-select').onchange = () => {
   updateReportsTab();
 };
+
+// Filter Bar event listeners for History tab
+document.getElementById('filter-period').onchange = () => {
+  const customDates = document.getElementById('filter-custom-dates');
+  if (document.getElementById('filter-period').value === 'custom') {
+    customDates.classList.remove('hidden');
+  } else {
+    customDates.classList.add('hidden');
+    // Clear inputs when hiding
+    document.getElementById('filter-start-date').value = '';
+    document.getElementById('filter-end-date').value = '';
+  }
+  updateHistoryTab();
+};
+
+document.getElementById('filter-start-date').onchange = () => updateHistoryTab();
+document.getElementById('filter-end-date').onchange = () => updateHistoryTab();
+document.getElementById('filter-type').onchange = () => updateHistoryTab();
+document.getElementById('filter-manual-only').onchange = () => updateHistoryTab();
+document.getElementById('filter-autobreak-only').onchange = () => updateHistoryTab();
+
 
 // Sync triggers
 document.getElementById('btn-sync-now').onclick = async () => {

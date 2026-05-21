@@ -152,6 +152,52 @@
             </div>
           </div>
 
+          <!-- Filter Bar -->
+          <div class="filter-bar glass">
+            <div class="filter-group">
+              <label for="filter-period">Zeitraum</label>
+              <select id="filter-period" class="custom-select small">
+                <option value="all-time" selected>Gesamt</option>
+                <option value="current-week">Aktuelle Woche</option>
+                <option value="current-month">Aktueller Monat</option>
+                <option value="last-month">Letzter Monat</option>
+                <option value="custom">Benutzerdefiniert...</option>
+              </select>
+            </div>
+            
+            <div id="filter-custom-dates" class="filter-group hidden">
+              <label>Zeitraum von - bis</label>
+              <div class="date-range-inputs">
+                <input type="date" id="filter-start-date" class="custom-select small">
+                <span>bis</span>
+                <input type="date" id="filter-end-date" class="custom-select small">
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label for="filter-type">Typ</label>
+              <select id="filter-type" class="custom-select small">
+                <option value="all" selected>Alle Typen</option>
+                <option value="work">Nur Arbeit</option>
+                <option value="vacation">Urlaub</option>
+                <option value="sick">Krankenstand</option>
+                <option value="holiday">Feiertag</option>
+                <option value="compensation">Zeitausgleich</option>
+              </select>
+            </div>
+
+            <div class="filter-group checkboxes">
+              <label class="checkbox-label">
+                <input type="checkbox" id="filter-manual-only">
+                <span>Nur manuelle Korrekturen</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="filter-autobreak-only">
+                <span>Nur gesetzlicher Pausenabzug</span>
+              </label>
+            </div>
+          </div>
+
           <div class="list-container glass scroller">
             <div class="table-responsive">
               <table class="data-table">
