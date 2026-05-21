@@ -522,6 +522,9 @@ async function updateHistoryTab() {
   const tbody = document.getElementById('history-table-body');
   tbody.innerHTML = '';
 
+  const tfoot = document.getElementById('history-table-footer');
+  if (tfoot) tfoot.innerHTML = '';
+
   const filterPeriod = document.getElementById('filter-period').value;
   const filterStartDateVal = document.getElementById('filter-start-date').value;
   const filterEndDateVal = document.getElementById('filter-end-date').value;
@@ -577,6 +580,13 @@ async function updateHistoryTab() {
   const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   let renderedCount = 0;
 
+  // Sum accumulators
+  let totalIstHours = 0;
+  let totalSollHours = 0;
+  let totalManualBreak = 0;
+  let totalAutoBreak = 0;
+  let totalSaldoHours = 0;
+
   dates.forEach(dateStr => {
     const dateData = daysMap[dateStr];
     
@@ -611,6 +621,13 @@ async function updateHistoryTab() {
     if (filterAutobreakOnly) {
       if (stats.autoBreakMinutes <= 0) return;
     }
+
+    // Accumulate sums
+    totalIstHours += stats.istHours;
+    totalSollHours += stats.sollHours;
+    totalManualBreak += stats.manualBreakMinutes;
+    totalAutoBreak += stats.autoBreakMinutes;
+    totalSaldoHours += stats.saldoHours;
 
     renderedCount++;
 
@@ -720,6 +737,44 @@ async function updateHistoryTab() {
     td.textContent = 'Keine Einträge für die gewählten Filter gefunden.';
     tr.appendChild(td);
     tbody.appendChild(tr);
+  } else {
+    // Render sums in tfoot
+    if (tfoot) {
+      const tr = document.createElement('tr');
+      
+      const tdLabel = document.createElement('td');
+      tdLabel.colSpan = 2;
+      tdLabel.innerHTML = '<strong>Gesamt (gefiltert)</strong>';
+      tr.appendChild(tdLabel);
+      
+      const tdTimes = document.createElement('td');
+      tdTimes.textContent = '-';
+      tr.appendChild(tdTimes);
+      
+      const tdIst = document.createElement('td');
+      tdIst.textContent = formatHours(totalIstHours);
+      tr.appendChild(tdIst);
+      
+      const tdBreak = document.createElement('td');
+      const autoBreakStr = totalAutoBreak > 0 ? ` (+${totalAutoBreak}m ges.)` : '';
+      tdBreak.textContent = `${totalManualBreak}m${autoBreakStr}`;
+      tr.appendChild(tdBreak);
+      
+      const tdSoll = document.createElement('td');
+      tdSoll.textContent = formatHours(totalSollHours);
+      tr.appendChild(tdSoll);
+      
+      const tdSaldo = document.createElement('td');
+      const saldoColor = totalSaldoHours >= 0 ? 'text-success' : 'text-danger';
+      tdSaldo.innerHTML = `<span class="${saldoColor}">${formatHours(totalSaldoHours)}</span>`;
+      tr.appendChild(tdSaldo);
+      
+      const tdActions = document.createElement('td');
+      tdActions.textContent = '-';
+      tr.appendChild(tdActions);
+      
+      tfoot.appendChild(tr);
+    }
   }
 }
 

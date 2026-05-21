@@ -615,9 +615,22 @@ body {
   font-size: 0.8rem;
   text-transform: uppercase;
 }
-
 .data-table tr:last-child td {
   border-bottom: none;
+}
+
+.data-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  background-color: var(--color-bg); /* fallback background color */
+  background: var(--color-card-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  border-top: 2px double var(--color-accent);
+  border-bottom: none;
+  z-index: 2;
 }
 
 /* Row states colors */
