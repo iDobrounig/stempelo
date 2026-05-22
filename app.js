@@ -10,60 +10,105 @@ if (typeof globalThis.Temporal !== 'undefined') {
 }
 
 // ----------------------------------------------------
-// 1. IndexedDB Adapter (Sync-Ready)
+// 1. IndexedDB Adapter (Sync-Ready) with iOS / Safari Fix
 // ----------------------------------------------------
 const DB_NAME = 'stempeluhr_db';
 const DB_VERSION = 1;
 let idb = null;
 
+/**
+ * Work around Safari 14+ IndexedDB open bug.
+ * Safari has a bug where IDB requests can hang while the browser is starting up.
+ * The solution is to keep checking the database status until it responds.
+ */
+function idbReady() {
+  const isSafari = !navigator.userAgentData &&
+    /Safari\//.test(navigator.userAgent) &&
+    !/Chrom(e|ium)\//.test(navigator.userAgent);
+  if (!isSafari || !indexedDB.databases) {
+    return Promise.resolve();
+  }
+  let intervalId;
+  return new Promise((resolve) => {
+    const tryIdb = () => indexedDB.databases().finally(resolve);
+    intervalId = setInterval(tryIdb, 100);
+    tryIdb();
+  }).finally(() => clearInterval(intervalId));
+}
+
 const dbAdapter = {
   open() {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (typeof indexedDB === 'undefined') {
         reject(new Error('IndexedDB wird in diesem Browser nicht unterstützt oder ist blockiert (z. B. im privaten Modus).'));
         return;
       }
 
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error('Zeitüberschreitung (Timeout) beim Laden der IndexedDB. Das WebKit-Datenbank-Subsystem reagiert nicht.'));
+        }
+      }, 3000);
+
       try {
+        await idbReady();
+        
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         
-        request.onerror = (event) => reject(event.target?.error || request.error || new Error('Datenbank konnte nicht geöffnet werden.'));
+        request.onerror = (event) => {
+          clearTimeout(timeoutId);
+          if (!settled) {
+            settled = true;
+            reject(event.target?.error || request.error || new Error('Datenbank konnte nicht geöffnet werden.'));
+          }
+        };
+
         request.onsuccess = () => {
-          idb = request.result;
-          resolve(idb);
+          clearTimeout(timeoutId);
+          if (!settled) {
+            settled = true;
+            idb = request.result;
+            resolve(idb);
+          }
         };
       
-      request.onupgradeneeded = (event) => {
-        const db = request.result;
-        
-        // Users store
-        if (!db.objectStoreNames.contains('users')) {
-          const store = db.createObjectStore('users', { keyPath: 'id' });
-          store.createIndex('updated_at', 'updated_at', { unique: false });
-        }
-        
-        // Punches store
-        if (!db.objectStoreNames.contains('punches')) {
-          const store = db.createObjectStore('punches', { keyPath: 'id' });
-          store.createIndex('user_id', 'user_id', { unique: false });
-          store.createIndex('updated_at', 'updated_at', { unique: false });
-        }
-        
-        // Time Off store
-        if (!db.objectStoreNames.contains('time_off')) {
-          const store = db.createObjectStore('time_off', { keyPath: 'id' });
-          store.createIndex('user_id', 'user_id', { unique: false });
-          store.createIndex('date', 'date', { unique: false });
-          store.createIndex('updated_at', 'updated_at', { unique: false });
-        }
-        
-        // Audit Logs store
-        if (!db.objectStoreNames.contains('audit_logs')) {
-          db.createObjectStore('audit_logs', { keyPath: 'id' });
-        }
-      };
+        request.onupgradeneeded = (event) => {
+          const db = request.result;
+          
+          // Users store
+          if (!db.objectStoreNames.contains('users')) {
+            const store = db.createObjectStore('users', { keyPath: 'id' });
+            store.createIndex('updated_at', 'updated_at', { unique: false });
+          }
+          
+          // Punches store
+          if (!db.objectStoreNames.contains('punches')) {
+            const store = db.createObjectStore('punches', { keyPath: 'id' });
+            store.createIndex('user_id', 'user_id', { unique: false });
+            store.createIndex('updated_at', 'updated_at', { unique: false });
+          }
+          
+          // Time Off store
+          if (!db.objectStoreNames.contains('time_off')) {
+            const store = db.createObjectStore('time_off', { keyPath: 'id' });
+            store.createIndex('user_id', 'user_id', { unique: false });
+            store.createIndex('date', 'date', { unique: false });
+            store.createIndex('updated_at', 'updated_at', { unique: false });
+          }
+          
+          // Audit Logs store
+          if (!db.objectStoreNames.contains('audit_logs')) {
+            db.createObjectStore('audit_logs', { keyPath: 'id' });
+          }
+        };
       } catch (err) {
-        reject(err);
+        clearTimeout(timeoutId);
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
       }
     });
   },
@@ -71,6 +116,10 @@ const dbAdapter = {
   // Generic Helpers
   getAll(storeName) {
     return new Promise((resolve, reject) => {
+      if (!idb) {
+        reject(new Error('Datenbank-Verbindung ist nicht bereit. Bitte lade die Seite neu.'));
+        return;
+      }
       const tx = idb.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
       const request = store.getAll();
@@ -81,6 +130,10 @@ const dbAdapter = {
 
   get(storeName, id) {
     return new Promise((resolve, reject) => {
+      if (!idb) {
+        reject(new Error('Datenbank-Verbindung ist nicht bereit. Bitte lade die Seite neu.'));
+        return;
+      }
       const tx = idb.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
       const request = store.get(id);
@@ -95,6 +148,10 @@ const dbAdapter = {
 
   put(storeName, item) {
     return new Promise((resolve, reject) => {
+      if (!idb) {
+        reject(new Error('Datenbank-Verbindung ist nicht bereit. Bitte lade die Seite neu.'));
+        return;
+      }
       const tx = idb.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       item.updated_at = new Date().toISOString();
@@ -106,6 +163,9 @@ const dbAdapter = {
 
   // Soft Delete
   async delete(storeName, id, userId = null) {
+    if (!idb) {
+      throw new Error('Datenbank-Verbindung ist nicht bereit. Bitte lade die Seite neu.');
+    }
     const item = await new Promise((resolve, reject) => {
       const tx = idb.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
@@ -129,6 +189,9 @@ const dbAdapter = {
 
   // Audit Logger
   logAudit(userId, action, tableName, recordId, oldData, newData) {
+    if (!idb) {
+      return Promise.reject(new Error('Datenbank-Verbindung ist nicht bereit. Bitte lade die Seite neu.'));
+    }
     const log = {
       id: crypto.randomUUID(),
       user_id: userId,
@@ -151,6 +214,10 @@ const dbAdapter = {
   // Sync Support: get changes
   getUnsyncedChanges(lastSyncTime) {
     return new Promise((resolve, reject) => {
+      if (!idb) {
+        reject(new Error('Datenbank-Verbindung ist nicht bereit. Bitte lade die Seite neu.'));
+        return;
+      }
       const cutoff = lastSyncTime ? new Date(lastSyncTime) : new Date(0);
       const changes = { users: [], punches: [], time_off: [], audit_logs: [] };
       const stores = ['users', 'punches', 'time_off', 'audit_logs'];
@@ -184,6 +251,9 @@ const dbAdapter = {
 
   // Sync Support: apply server updates
   async applyServerUpdates(updates) {
+    if (!idb) {
+      throw new Error('Datenbank-Verbindung ist nicht bereit. Bitte lade die Seite neu.');
+    }
     let appliedCount = 0;
 
     const applyStore = async (storeName, items) => {
@@ -360,7 +430,18 @@ async function populateUserSelect() {
   const select = document.getElementById('user-select');
   select.innerHTML = '';
   
-  users = await dbAdapter.getAll('users');
+  try {
+    users = await dbAdapter.getAll('users');
+  } catch (error) {
+    console.error('Fehler beim Laden der Benutzer:', error);
+    users = [];
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '-- Fehler beim Laden (Datenbank nicht bereit) --';
+    select.appendChild(opt);
+    document.getElementById('pin-entry-area').classList.add('hidden');
+    return;
+  }
   
   if (users.length === 0) {
     const opt = document.createElement('option');
@@ -1272,31 +1353,36 @@ document.getElementById('pin-clear').onclick = () => {
 };
 
 document.getElementById('pin-ok').onclick = async () => {
-  const userId = document.getElementById('user-select').value;
-  if (!userId) return;
+  try {
+    const userId = document.getElementById('user-select').value;
+    if (!userId) return;
 
-  const user = await dbAdapter.get('users', userId);
-  if (!user) return;
+    const user = await dbAdapter.get('users', userId);
+    if (!user) return;
 
-  const hashed = await hashPIN(currentPinInput);
-  if (hashed === user.pin) {
-    currentUser = user;
-    localStorage.setItem('last-logged-user-id', user.id);
-    
-    // Switch screen
-    document.getElementById('lock-screen').classList.remove('active');
-    document.getElementById('main-screen').classList.remove('hidden');
-    document.getElementById('current-user-name').textContent = user.name;
-    
-    switchTab('tab-punch');
-  } else {
-    resetPinEntry();
-    const err = document.getElementById('pin-error');
-    err.classList.remove('hidden');
-    // shake animation trigger
-    err.style.animation = 'none';
-    err.offsetHeight; // trigger reflow
-    err.style.animation = null;
+    const hashed = await hashPIN(currentPinInput);
+    if (hashed === user.pin) {
+      currentUser = user;
+      localStorage.setItem('last-logged-user-id', user.id);
+      
+      // Switch screen
+      document.getElementById('lock-screen').classList.remove('active');
+      document.getElementById('main-screen').classList.remove('hidden');
+      document.getElementById('current-user-name').textContent = user.name;
+      
+      switchTab('tab-punch');
+    } else {
+      resetPinEntry();
+      const err = document.getElementById('pin-error');
+      err.classList.remove('hidden');
+      // shake animation trigger
+      err.style.animation = 'none';
+      err.offsetHeight; // trigger reflow
+      err.style.animation = null;
+    }
+  } catch (error) {
+    console.error('Anmeldefehler:', error);
+    alert('Fehler bei der Anmeldung: ' + error.message);
   }
 };
 
@@ -1645,6 +1731,10 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
   SyncService.setServerUrl(serverUrl);
 
   try {
+    if (!idb) {
+      console.log('IndexedDB is null, trying to open now...');
+      await dbAdapter.open();
+    }
     const res = await SyncService.sync(dbAdapter);
     await populateUserSelect();
     alert(`Verbindung erfolgreich! ${res.appliedCount} Änderungen synchronisiert.`);
