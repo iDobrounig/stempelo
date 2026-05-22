@@ -15,7 +15,6 @@ if (typeof globalThis.Temporal !== 'undefined') {
 const DB_NAME = 'stempeluhr_db';
 const DB_VERSION = 2;
 let idb = null;
-SyncService.dbAdapter = dbAdapter;
 
 /**
  * Work around Safari 14+ IndexedDB open bug.
@@ -364,6 +363,8 @@ const dbAdapter = {
     return appliedCount;
   }
 };
+
+SyncService.dbAdapter = dbAdapter;
 
 // ----------------------------------------------------
 // 1.5 Hybrid Storage Wrappers (localStorage + IndexedDB Config Cache)
