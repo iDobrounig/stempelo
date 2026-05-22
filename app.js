@@ -138,7 +138,7 @@ const dbAdapter = {
     }
 
     // Merge/sync with localStorage for known keys
-    const keys = ['sync-server-url', 'sync-last-time', 'last-logged-user-id', 'color-scheme'];
+    const keys = ['sync-server-url', 'sync-last-time', 'last-logged-user-id', 'color-scheme', 'session-expiry', 'active-tab'];
     
     // Also sync user-break-* keys if they exist in IndexedDB or localStorage
     Object.keys(SyncService.configCache).forEach(key => {
@@ -1319,8 +1319,17 @@ function updateSettingsTab() {
 // ----------------------------------------------------
 // 6. Navigation Controls
 // ----------------------------------------------------
+function refreshSession() {
+  if (currentUser) {
+    const expiry = Date.now() + 12 * 60 * 60 * 1000; // 12 hours session
+    storageSetItem('session-expiry', expiry.toString());
+  }
+}
+
 function switchTab(tabId) {
   currentTab = tabId;
+  storageSetItem('active-tab', tabId);
+  refreshSession();
   
   // Update nav buttons
   const navItems = document.querySelectorAll('.nav-item');
@@ -1351,6 +1360,7 @@ function switchTab(tabId) {
 
 function lockApp() {
   currentUser = null;
+  storageRemoveItem('session-expiry');
   document.getElementById('main-screen').classList.add('hidden');
   document.getElementById('lock-screen').classList.add('active');
   populateUserSelect();
@@ -1693,13 +1703,15 @@ document.getElementById('pin-ok').onclick = async () => {
     if (hashed === user.pin) {
       currentUser = user;
       storageSetItem('last-logged-user-id', user.id);
+      refreshSession();
       
       // Switch screen
       document.getElementById('lock-screen').classList.remove('active');
       document.getElementById('main-screen').classList.remove('hidden');
       document.getElementById('current-user-name').textContent = user.name;
       
-      switchTab('tab-punch');
+      const savedTab = storageGetItem('active-tab') || 'tab-punch';
+      switchTab(savedTab);
     } else {
       resetPinEntry();
       const err = document.getElementById('pin-error');
@@ -2373,6 +2385,33 @@ async function initApp() {
 
   // Populate profiles initially
   await populateUserSelect();
+
+  // Restore session if valid
+  const expiryVal = storageGetItem('session-expiry');
+  const lastUserId = storageGetItem('last-logged-user-id');
+  let autoLoggedIn = false;
+  if (expiryVal && lastUserId) {
+    const expiry = parseInt(expiryVal, 10);
+    if (expiry > Date.now()) {
+      const user = users.find(u => u.id === lastUserId);
+      if (user) {
+        currentUser = user;
+        document.getElementById('lock-screen').classList.remove('active');
+        document.getElementById('main-screen').classList.remove('hidden');
+        document.getElementById('current-user-name').textContent = user.name;
+        
+        const savedTab = storageGetItem('active-tab') || 'tab-punch';
+        switchTab(savedTab);
+        autoLoggedIn = true;
+        console.log(`Auto-logged in user: ${user.name}`);
+      }
+    }
+  }
+
+  if (!autoLoggedIn) {
+    document.getElementById('lock-screen').classList.add('active');
+    document.getElementById('main-screen').classList.add('hidden');
+  }
 
   // Startup sync retry loop (especially useful on iOS when launching PWA and network is offline for the first few seconds)
   let syncSuccess = false;
