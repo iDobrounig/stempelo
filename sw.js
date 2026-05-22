@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stempelo-v5';
+const CACHE_NAME = 'stempelo-v6';
 const ASSETS = [
   './',
   'index.html',

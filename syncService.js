@@ -2,11 +2,14 @@
  * SyncService - Handles synchronization between local IndexedDB and Express/SQLite server.
  */
 export const SyncService = {
+  configCache: {},
+  dbAdapter: null,
+
   /**
-   * Get server URL from localStorage or default to current host
+   * Get server URL from localStorage/cache or default to current host
    */
   getServerUrl() {
-    let savedUrl = localStorage.getItem('sync-server-url');
+    let savedUrl = localStorage.getItem('sync-server-url') || this.configCache['sync-server-url'];
     if (!savedUrl && typeof window !== 'undefined' && window.location) {
       if (window.location.origin && window.location.protocol.startsWith('http')) {
         savedUrl = window.location.origin;
@@ -16,17 +19,21 @@ export const SyncService = {
   },
 
   /**
-   * Set server URL in localStorage
+   * Set server URL in localStorage, cache and IndexedDB
    */
   setServerUrl(url) {
     localStorage.setItem('sync-server-url', url);
+    this.configCache['sync-server-url'] = url;
+    if (this.dbAdapter && this.dbAdapter.saveConfigItem) {
+      this.dbAdapter.saveConfigItem('sync-server-url', url);
+    }
   },
 
   /**
    * Get last sync time
    */
   getLastSyncTime() {
-    return localStorage.getItem('sync-last-time') || null;
+    return localStorage.getItem('sync-last-time') || this.configCache['sync-last-time'] || null;
   },
 
   /**
@@ -34,6 +41,10 @@ export const SyncService = {
    */
   setLastSyncTime(time) {
     localStorage.setItem('sync-last-time', time);
+    this.configCache['sync-last-time'] = time;
+    if (this.dbAdapter && this.dbAdapter.saveConfigItem) {
+      this.dbAdapter.saveConfigItem('sync-last-time', time);
+    }
   },
 
   /**

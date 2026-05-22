@@ -13,8 +13,9 @@ if (typeof globalThis.Temporal !== 'undefined') {
 // 1. IndexedDB Adapter (Sync-Ready) with iOS / Safari Fix
 // ----------------------------------------------------
 const DB_NAME = 'stempeluhr_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let idb = null;
+SyncService.dbAdapter = dbAdapter;
 
 /**
  * Work around Safari 14+ IndexedDB open bug.
@@ -102,6 +103,11 @@ const dbAdapter = {
           if (!db.objectStoreNames.contains('audit_logs')) {
             db.createObjectStore('audit_logs', { keyPath: 'id' });
           }
+
+          // Config store
+          if (!db.objectStoreNames.contains('config')) {
+            db.createObjectStore('config', { keyPath: 'key' });
+          }
         };
       } catch (err) {
         clearTimeout(timeoutId);
@@ -111,6 +117,75 @@ const dbAdapter = {
         }
       }
     });
+  },
+
+  // Load configuration from IndexedDB and sync with localStorage
+  async loadConfig() {
+    if (!idb) return;
+    try {
+      const configItems = await new Promise((resolve, reject) => {
+        const tx = idb.transaction('config', 'readonly');
+        const store = tx.objectStore('config');
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+
+      configItems.forEach(item => {
+        SyncService.configCache[item.key] = item.value;
+      });
+    } catch (e) {
+      console.warn('Failed to load config from IndexedDB:', e);
+    }
+
+    // Merge/sync with localStorage for known keys
+    const keys = ['sync-server-url', 'sync-last-time', 'last-logged-user-id', 'color-scheme'];
+    
+    // Also sync user-break-* keys if they exist in IndexedDB or localStorage
+    Object.keys(SyncService.configCache).forEach(key => {
+      if (key.startsWith('user-break-')) {
+        if (localStorage.getItem(key) === null) {
+          localStorage.setItem(key, SyncService.configCache[key]);
+        }
+      }
+    });
+
+    keys.forEach(key => {
+      const localVal = localStorage.getItem(key);
+      const dbVal = SyncService.configCache[key];
+
+      if (dbVal !== undefined && localVal === null) {
+        localStorage.setItem(key, dbVal);
+      } else if (localVal !== null && dbVal === undefined) {
+        SyncService.configCache[key] = localVal;
+        this.saveConfigItem(key, localVal);
+      } else if (localVal !== null && dbVal !== undefined && localVal !== dbVal) {
+        SyncService.configCache[key] = localVal;
+        this.saveConfigItem(key, localVal);
+      }
+    });
+  },
+
+  saveConfigItem(key, value) {
+    if (!idb) return;
+    try {
+      const tx = idb.transaction('config', 'readwrite');
+      const store = tx.objectStore('config');
+      store.put({ key, value });
+    } catch (e) {
+      console.warn(`Failed to save config item ${key} to IndexedDB:`, e);
+    }
+  },
+
+  deleteConfigItem(key) {
+    if (!idb) return;
+    try {
+      const tx = idb.transaction('config', 'readwrite');
+      const store = tx.objectStore('config');
+      store.delete(key);
+    } catch (e) {
+      console.warn(`Failed to delete config item ${key} from IndexedDB:`, e);
+    }
   },
 
   // Generic Helpers
@@ -291,6 +366,27 @@ const dbAdapter = {
 };
 
 // ----------------------------------------------------
+// 1.5 Hybrid Storage Wrappers (localStorage + IndexedDB Config Cache)
+// ----------------------------------------------------
+function storageGetItem(key) {
+  const localVal = localStorage.getItem(key);
+  if (localVal !== null) return localVal;
+  return SyncService.configCache[key] !== undefined ? SyncService.configCache[key] : null;
+}
+
+function storageSetItem(key, value) {
+  localStorage.setItem(key, value);
+  SyncService.configCache[key] = value;
+  dbAdapter.saveConfigItem(key, value);
+}
+
+function storageRemoveItem(key) {
+  localStorage.removeItem(key);
+  delete SyncService.configCache[key];
+  dbAdapter.deleteConfigItem(key);
+}
+
+// ----------------------------------------------------
 // 2. State & Constants
 // ----------------------------------------------------
 let users = [];
@@ -457,7 +553,7 @@ async function populateUserSelect() {
       select.appendChild(opt);
     });
     document.getElementById('pin-entry-area').classList.remove('hidden');
-    select.value = localStorage.getItem('last-logged-user-id') || users[0].id;
+    select.value = storageGetItem('last-logged-user-id') || users[0].id;
     resetPinEntry();
   }
 }
@@ -561,7 +657,7 @@ async function updatePunchTab() {
     updateTimer();
     timerInterval = setInterval(updateTimer, 1000);
 
-  } else if (localStorage.getItem(`user-break-active-${currentUser.id}`) === 'true') {
+  } else if (storageGetItem(`user-break-active-${currentUser.id}`) === 'true') {
     // User is on break (Break timer)
     statusIndicator.textContent = 'In der Pause';
     statusIndicator.className = 'status-badge onbreak';
@@ -572,7 +668,7 @@ async function updatePunchTab() {
     btnBreakToggle.textContent = 'Pause beenden';
 
     // Live break timer
-    const breakStartStr = localStorage.getItem(`user-break-start-${currentUser.id}`);
+    const breakStartStr = storageGetItem(`user-break-start-${currentUser.id}`);
     const startInstant = Temporal.Instant.from(breakStartStr);
     
     const updateTimer = () => {
@@ -1363,7 +1459,7 @@ document.getElementById('pin-ok').onclick = async () => {
     const hashed = await hashPIN(currentPinInput);
     if (hashed === user.pin) {
       currentUser = user;
-      localStorage.setItem('last-logged-user-id', user.id);
+      storageSetItem('last-logged-user-id', user.id);
       
       // Switch screen
       document.getElementById('lock-screen').classList.remove('active');
@@ -1418,8 +1514,8 @@ document.getElementById('btn-punch-out').onclick = async () => {
   }
 
   // Clear break timer if running
-  localStorage.removeItem(`user-break-active-${currentUser.id}`);
-  localStorage.removeItem(`user-break-start-${currentUser.id}`);
+  storageRemoveItem(`user-break-active-${currentUser.id}`);
+  storageRemoveItem(`user-break-start-${currentUser.id}`);
 
   updatePunchTab();
   triggerSilentSync();
@@ -1428,7 +1524,7 @@ document.getElementById('btn-punch-out').onclick = async () => {
 document.getElementById('btn-break-toggle').onclick = async () => {
   if (!currentUser) return;
 
-  const isBreakActive = localStorage.getItem(`user-break-active-${currentUser.id}`) === 'true';
+  const isBreakActive = storageGetItem(`user-break-active-${currentUser.id}`) === 'true';
   const allPunches = await dbAdapter.getAll('punches');
   const active = allPunches.find(p => p.user_id === currentUser.id && !p.end_time);
 
@@ -1437,12 +1533,12 @@ document.getElementById('btn-break-toggle').onclick = async () => {
     active.end_time = new Date().toISOString();
     await dbAdapter.put('punches', active);
 
-    localStorage.setItem(`user-break-active-${currentUser.id}`, 'true');
-    localStorage.setItem(`user-break-start-${currentUser.id}`, new Date().toISOString());
+    storageSetItem(`user-break-active-${currentUser.id}`, 'true');
+    storageSetItem(`user-break-start-${currentUser.id}`, new Date().toISOString());
   } else if (isBreakActive) {
     // End Break: Start a new punch session, clear break state
-    localStorage.removeItem(`user-break-active-${currentUser.id}`);
-    localStorage.removeItem(`user-break-start-${currentUser.id}`);
+    storageRemoveItem(`user-break-active-${currentUser.id}`);
+    storageRemoveItem(`user-break-start-${currentUser.id}`);
 
     const newPunch = {
       id: crypto.randomUUID(),
@@ -1852,7 +1948,7 @@ document.getElementById('btn-theme-toggle').onclick = () => {
   
   document.documentElement.setAttribute('data-theme', newTheme);
   document.documentElement.style.colorScheme = newTheme;
-  localStorage.setItem('color-scheme', newTheme);
+  storageSetItem('color-scheme', newTheme);
 };
 
 document.getElementById('btn-lock-app').onclick = () => {
@@ -1956,11 +2052,69 @@ async function initApp() {
     alert('Datenbankfehler beim Starten: ' + (dbError.message || dbError.name || dbError));
   }
 
-  // Populate profiles
+  if (dbSuccess) {
+    // Load config from IndexedDB config store and merge with localStorage
+    await dbAdapter.loadConfig();
+
+    // Apply color theme (in case it was restored from IndexedDB)
+    const colorScheme = storageGetItem('color-scheme') || 'dark';
+    document.documentElement.setAttribute('data-theme', colorScheme);
+    document.documentElement.style.colorScheme = colorScheme;
+  }
+
+  // Populate profiles initially
   await populateUserSelect();
 
-  // Initial silent background sync
-  triggerSilentSync();
+  // Startup sync retry loop (especially useful on iOS when launching PWA and network is offline for the first few seconds)
+  let syncSuccess = false;
+  const maxSyncAttempts = 5;
+  for (let attempt = 1; attempt <= maxSyncAttempts; attempt++) {
+    const serverUrl = SyncService.getServerUrl();
+    if (!serverUrl) break; // Don't try to sync if no server URL is set/defaulted
+
+    try {
+      if (isSyncing) {
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      isSyncing = true;
+      console.log(`Startup sync attempt ${attempt} starting...`);
+      const res = await SyncService.sync(dbAdapter);
+      console.log(`Startup sync success on attempt ${attempt}: ${res.appliedCount} updates imported.`);
+      
+      // Update last sync time display on settings tab if active
+      const lastSyncTimeEl = document.getElementById('sync-last-time');
+      if (lastSyncTimeEl) {
+        lastSyncTimeEl.textContent = new Date(res.serverTime).toLocaleString('de');
+      }
+
+      await populateUserSelect();
+      syncSuccess = true;
+      isSyncing = false;
+      break;
+    } catch (err) {
+      isSyncing = false;
+      console.warn(`Startup sync attempt ${attempt} failed:`, err.message || err);
+      
+      // If we already have users locally, we don't need to be aggressive about retrying on cold start
+      const currentUsers = await dbAdapter.getAll('users');
+      if (currentUsers && currentUsers.length > 0) {
+        console.log('We already have cached users, stopping startup sync retry loop.');
+        break;
+      }
+      
+      if (attempt < maxSyncAttempts) {
+        const delay = 1000 + attempt * 1000;
+        console.log(`Retrying startup sync in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+
+  // If the retry loop didn't run or didn't succeed, trigger a standard silent sync as a fallback
+  if (!syncSuccess) {
+    triggerSilentSync();
+  }
 
   // Register Service Worker for PWA
   if ('serviceWorker' in navigator) {
