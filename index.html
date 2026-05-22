@@ -36,10 +36,17 @@
     <!-- 1. Lock Screen (PIN Entry & User Switcher) -->
     <section id="lock-screen" class="view active">
       <div class="lock-card glass">
+        <!-- Sleek Language Switcher -->
+        <div class="lock-lang-switcher">
+          <button type="button" class="btn-lock-lang active" data-lang="de">DE</button>
+          <span class="lang-divider">|</span>
+          <button type="button" class="btn-lock-lang" data-lang="en">EN</button>
+        </div>
+
         <div class="app-header-logo">
           <img src="assets/icon.png" alt="App Logo" class="app-logo">
           <h1>Stempelo</h1>
-          <p>Bitte wähle dein Profil</p>
+          <p data-i18n="lock-select-profile">Bitte wähle dein Profil</p>
         </div>
 
         <div class="user-select-container">
@@ -47,10 +54,10 @@
             <!-- Dynamically populated -->
           </select>
           <div class="lock-actions">
-            <button id="btn-show-create-user" class="btn secondary small">+ Neuer Benutzer</button>
-            <button id="btn-show-server-settings" class="btn secondary small" title="Server-Verbindung">
+            <button id="btn-show-create-user" class="btn secondary small" data-i18n="lock-btn-new-user">+ Neuer Benutzer</button>
+            <button id="btn-show-server-settings" class="btn secondary small" data-i18n-title="server-title">
               <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" style="vertical-align: middle; margin-right: 2px;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              Verbindung
+              <span data-i18n="lock-btn-connection">Verbindung</span>
             </button>
           </div>
         </div>
@@ -73,11 +80,11 @@
             <button class="pin-btn" data-val="7">7</button>
             <button class="pin-btn" data-val="8">8</button>
             <button class="pin-btn" data-val="9">9</button>
-            <button class="pin-btn action-clear" id="pin-clear">C</button>
+            <button class="pin-btn action-clear" id="pin-clear" data-i18n="lock-pin-btn-clear">C</button>
             <button class="pin-btn" data-val="0">0</button>
-            <button class="pin-btn action-ok" id="pin-ok">OK</button>
+            <button class="pin-btn action-ok" id="pin-ok" data-i18n="lock-pin-btn-ok">OK</button>
           </div>
-          <p id="pin-error" class="error-text hidden">Falscher PIN! Bitte erneut versuchen.</p>
+          <p id="pin-error" class="error-text hidden" data-i18n="lock-pin-error">Falscher PIN! Bitte erneut versuchen.</p>
         </div>
       </div>
     </section>
@@ -87,16 +94,16 @@
       <header class="app-header glass">
         <div class="header-profile">
           <div class="profile-info">
-            <span class="profile-label">Mitarbeiter</span>
+            <span class="profile-label" data-i18n="header-employee">Mitarbeiter</span>
             <h2 id="current-user-name">Lade...</h2>
           </div>
         </div>
         
         <div class="header-actions">
-          <button id="btn-lock-app" class="btn secondary icon-btn" title="Bildschirm sperren">
+          <button id="btn-lock-app" class="btn secondary icon-btn" data-i18n-title="header-btn-lock">
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           </button>
-          <button id="btn-theme-toggle" class="btn secondary icon-btn" title="Design wechseln">
+          <button id="btn-theme-toggle" class="btn secondary icon-btn" data-i18n-title="header-btn-theme">
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
           </button>
         </div>
@@ -107,36 +114,36 @@
         <section id="tab-punch" class="tab-content active">
           <!-- Circular Clock Card -->
           <div class="punch-card glass">
-            <div id="punch-status-indicator" class="status-badge stopped">Nicht eingestempelt</div>
+            <div id="punch-status-indicator" class="status-badge stopped" data-i18n="punch-status-stopped">Nicht eingestempelt</div>
             
             <div class="clock-display">
               <span id="live-timer">00:00:00</span>
-              <p id="punch-subtitle">Heutige Arbeitszeit</p>
+              <p id="punch-subtitle" data-i18n="punch-subtitle">Heutige Arbeitszeit</p>
             </div>
 
             <div class="punch-controls">
-              <button id="btn-punch-in" class="btn primary large">Einstempeln</button>
-              <button id="btn-punch-out" class="btn danger large hidden">Ausstempeln</button>
-              <button id="btn-break-toggle" class="btn warning large hidden">Pause starten</button>
+              <button id="btn-punch-in" class="btn primary large" data-i18n="punch-btn-in">Einstempeln</button>
+              <button id="btn-punch-out" class="btn danger large hidden" data-i18n="punch-btn-out">Ausstempeln</button>
+              <button id="btn-break-toggle" class="btn warning large hidden" data-i18n="punch-btn-break-start">Pause starten</button>
             </div>
           </div>
 
           <!-- Daily Overview Dashboard -->
           <div class="grid-stats">
             <div class="stat-card glass">
-              <span class="stat-title">Soll Heute</span>
+              <span class="stat-title" data-i18n="punch-stat-soll">Soll Heute</span>
               <span class="stat-value" id="stats-soll-today">0h</span>
             </div>
             <div class="stat-card glass">
-              <span class="stat-title">Ist Heute (Netto)</span>
+              <span class="stat-title" data-i18n="punch-stat-ist">Ist Heute (Netto)</span>
               <span class="stat-value" id="stats-ist-today">0h</span>
             </div>
             <div class="stat-card glass">
-              <span class="stat-title">Pause Heute</span>
+              <span class="stat-title" data-i18n="punch-stat-pause">Pause Heute</span>
               <span class="stat-value text-warning" id="stats-pause-today">0h</span>
             </div>
             <div class="stat-card glass">
-              <span class="stat-title">Tagessaldo</span>
+              <span class="stat-title" data-i18n="punch-stat-saldo">Tagessaldo</span>
               <span class="stat-value" id="stats-saldo-today">+0h</span>
             </div>
           </div>
@@ -144,59 +151,59 @@
           <!-- Active Break Deductions Alert -->
           <div id="alert-break-deductions" class="alert-info glass hidden">
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            <p><strong>Gesetzlicher Pausenabzug (AT):</strong> Da du heute über 6 Stunden gearbeitet hast, wurden automatisch 30 Minuten Pause abgezogen.</p>
+            <p><strong data-i18n="punch-alert-break-deductions-title">Gesetzlicher Pausenabzug (AT):</strong> <span data-i18n="punch-alert-break-deductions-text">Da du heute über 6 Stunden gearbeitet hast, wurden automatisch 30 Minuten Pause abgezogen.</span></p>
           </div>
         </section>
 
         <!-- 2b. Tab Panel: Historie & Zeiten -->
         <section id="tab-history" class="tab-content">
           <div class="section-header">
-            <h3>Arbeitszeiten-Protokoll</h3>
+            <h3 data-i18n="history-title">Arbeitszeiten-Protokoll</h3>
             <div class="history-actions">
-              <button id="btn-add-manual-punch" class="btn secondary small">+ Zeit eintragen</button>
-              <button id="btn-add-timeoff" class="btn secondary small">+ Freier Tag</button>
-              <button id="btn-export-csv" class="btn secondary small">CSV Export</button>
+              <button id="btn-add-manual-punch" class="btn secondary small" data-i18n="history-btn-add-punch">+ Zeit eintragen</button>
+              <button id="btn-add-timeoff" class="btn secondary small" data-i18n="history-btn-add-timeoff">+ Freier Tag</button>
+              <button id="btn-export-csv" class="btn secondary small" data-i18n="history-btn-export-csv">CSV Export</button>
             </div>
           </div>
 
           <!-- Filter Bar -->
           <div class="filter-bar glass">
             <div class="filter-group">
-              <label for="filter-period">Zeitraum</label>
+              <label for="filter-period" data-i18n="history-filter-period">Zeitraum</label>
               <select id="filter-period" class="custom-select small">
-                <option value="all-time" selected>Gesamt</option>
-                <option value="current-week">Aktuelle Woche</option>
-                <option value="current-month">Aktueller Monat</option>
-                <option value="last-month">Letzter Monat</option>
-                <option value="custom">Benutzerdefiniert...</option>
+                <option value="all-time" selected data-i18n="history-period-all">Gesamt</option>
+                <option value="current-week" data-i18n="history-period-week">Aktuelle Woche</option>
+                <option value="current-month" data-i18n="history-period-month">Aktueller Monat</option>
+                <option value="last-month" data-i18n="history-period-last-month">Letzter Monat</option>
+                <option value="custom" data-i18n="history-period-custom">Benutzerdefiniert...</option>
               </select>
             </div>
             
             <div id="filter-custom-dates" class="filter-group hidden">
-              <label>Zeitraum von - bis</label>
+              <label data-i18n="history-filter-custom-range">Zeitraum von - bis</label>
               <div class="date-range-inputs">
                 <input type="date" id="filter-start-date" class="custom-select small">
-                <span>bis</span>
+                <span data-i18n="history-filter-custom-to">bis</span>
                 <input type="date" id="filter-end-date" class="custom-select small">
               </div>
             </div>
 
             <div class="filter-group">
-              <label for="filter-type">Typ</label>
+              <label for="filter-type" data-i18n="history-filter-type">Typ</label>
               <select id="filter-type" class="custom-select small">
-                <option value="all" selected>Alle Typen</option>
-                <option value="work">Nur Arbeit</option>
-                <option value="vacation">Urlaub</option>
-                <option value="sick">Krankenstand</option>
-                <option value="holiday">Feiertag</option>
-                <option value="compensation">Zeitausgleich</option>
+                <option value="all" selected data-i18n="history-type-all">Alle Typen</option>
+                <option value="work" data-i18n="history-type-work">Nur Arbeit</option>
+                <option value="vacation" data-i18n="history-type-vacation">Urlaub</option>
+                <option value="sick" data-i18n="history-type-sick">Krankenstand</option>
+                <option value="holiday" data-i18n="history-type-holiday">Feiertag</option>
+                <option value="compensation" data-i18n="history-type-compensation">Zeitausgleich</option>
               </select>
             </div>
 
             <div class="filter-group checkboxes">
               <label class="checkbox-label">
                 <input type="checkbox" id="filter-manual-only">
-                <span>Nur manuelle Korrekturen</span>
+                <span data-i18n="history-filter-manual-only">Nur manuelle Korrekturen</span>
               </label>
             </div>
           </div>
@@ -206,14 +213,14 @@
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>Datum</th>
-                    <th>Typ</th>
-                    <th>Arbeitszeit (Kommen - Gehen)</th>
-                    <th>Ist (Netto)</th>
-                    <th>Pause (gest./ges.)</th>
-                    <th>Soll</th>
-                    <th>Status</th>
-                    <th>Aktionen</th>
+                    <th data-i18n="history-th-date">Datum</th>
+                    <th data-i18n="history-th-type">Typ</th>
+                    <th data-i18n="history-th-worktime">Arbeitszeit (Kommen - Gehen)</th>
+                    <th data-i18n="history-th-actual">Ist (Netto)</th>
+                    <th data-i18n="history-th-break">Pause (gest./ges.)</th>
+                    <th data-i18n="history-th-target">Soll</th>
+                    <th data-i18n="history-th-status">Status</th>
+                    <th data-i18n="history-th-actions">Aktionen</th>
                   </tr>
                 </thead>
                 <tbody id="history-table-body">
@@ -230,13 +237,13 @@
         <!-- 2c. Tab Panel: Auswertung / Berichte -->
         <section id="tab-reports" class="tab-content">
           <div class="section-header">
-            <h3>Auswertung & Berichte</h3>
+            <h3 data-i18n="reports-title">Auswertung & Berichte</h3>
             <div class="report-filters">
               <select id="report-period-select" class="custom-select small">
-                <option value="current-week">Aktuelle Woche</option>
-                <option value="current-month" selected>Aktueller Monat</option>
-                <option value="last-month">Letzter Monat</option>
-                <option value="all-time">Gesamt</option>
+                <option value="current-week" data-i18n="reports-period-week">Aktuelle Woche</option>
+                <option value="current-month" selected data-i18n="reports-period-month">Aktueller Monat</option>
+                <option value="last-month" data-i18n="reports-period-last-month">Letzter Monat</option>
+                <option value="all-time" data-i18n="reports-period-all">Gesamt</option>
               </select>
             </div>
           </div>
@@ -244,19 +251,19 @@
           <!-- Aggregated Statistics Cards -->
           <div class="report-summary-grid">
             <div class="report-stat-card glass border-blue">
-              <span class="report-title">Soll-Arbeitszeit</span>
+              <span class="report-title" data-i18n="reports-stat-target">Soll-Arbeitszeit</span>
               <span class="report-val" id="rep-soll-hours">0,0h</span>
             </div>
             <div class="report-stat-card glass border-green">
-              <span class="report-title">Ist-Arbeitszeit (Netto)</span>
+              <span class="report-title" data-i18n="reports-stat-actual">Ist-Arbeitszeit (Netto)</span>
               <span class="report-val" id="rep-ist-hours">0,0h</span>
             </div>
             <div class="report-stat-card glass" id="rep-saldo-card">
-              <span class="report-title">Zeitsaldo</span>
+              <span class="report-title" data-i18n="reports-stat-balance">Zeitsaldo</span>
               <span class="report-val" id="rep-saldo-hours">0,0h</span>
             </div>
             <div class="report-stat-card glass border-orange">
-              <span class="report-title">Urlaub & Freie Tage</span>
+              <span class="report-title" data-i18n="reports-stat-free">Urlaub & Freie Tage</span>
               <span class="report-val" id="rep-free-days">0 Tage</span>
               <span class="report-subval" id="rep-free-days-breakdown">Vac: 0 | Sick: 0 | Hol: 0</span>
             </div>
@@ -264,7 +271,7 @@
 
           <!-- Audit Log Trail (History) -->
           <div class="audit-log-section">
-            <h4>Änderungshistorie (Audit Log)</h4>
+            <h4 data-i18n="reports-audit-title">Änderungshistorie (Audit Log)</h4>
             <div class="audit-log-list scroller glass" id="audit-log-container">
               <!-- Dynamically populated -->
             </div>
@@ -276,68 +283,75 @@
           <div class="settings-grid">
             <!-- User configuration -->
             <div class="settings-card glass">
-              <h3>Profil-Einstellungen</h3>
+              <h3 data-i18n="settings-profile-title">Profil-Einstellungen</h3>
               <form id="form-user-settings">
                 <div class="form-group">
-                  <label for="set-user-name">Name</label>
+                  <label for="set-user-name" data-i18n="settings-label-name">Name</label>
                   <input type="text" id="set-user-name" required>
                 </div>
                 <div class="form-group">
-                  <label for="set-user-pin">4-stellige PIN</label>
-                  <input type="password" id="set-user-pin" pattern="[0-9]{4}" placeholder="Unverändert lassen..." maxlength="4">
+                  <label for="set-user-pin" data-i18n="settings-label-pin">4-stellige PIN</label>
+                  <input type="password" id="set-user-pin" pattern="[0-9]{4}" data-i18n-placeholder="settings-placeholder-pin" placeholder="Unverändert lassen..." maxlength="4">
+                </div>
+                <div class="form-group">
+                  <label for="set-user-lang" data-i18n="settings-label-language">Sprache</label>
+                  <select id="set-user-lang" class="custom-select">
+                    <option value="de">Deutsch (DE)</option>
+                    <option value="en">English (EN)</option>
+                  </select>
                 </div>
                 
-                <h4 class="settings-sub">Individuelle Soll-Stunden pro Wochentag</h4>
+                <h4 class="settings-sub" data-i18n="settings-target-hours">Individuelle Soll-Stunden pro Wochentag</h4>
                 <div class="soll-week-inputs">
                   <div class="soll-day">
-                    <label for="soll-mon">Mo</label>
+                    <label for="soll-mon" data-i18n="weekday-mon">Mo</label>
                     <input type="number" id="soll-mon" min="0" max="24" step="0.1" required>
                   </div>
                   <div class="soll-day">
-                    <label for="soll-tue">Di</label>
+                    <label for="soll-tue" data-i18n="weekday-tue">Di</label>
                     <input type="number" id="soll-tue" min="0" max="24" step="0.1" required>
                   </div>
                   <div class="soll-day">
-                    <label for="soll-wed">Mi</label>
+                    <label for="soll-wed" data-i18n="weekday-wed">Mi</label>
                     <input type="number" id="soll-wed" min="0" max="24" step="0.1" required>
                   </div>
                   <div class="soll-day">
-                    <label for="soll-thu">Do</label>
+                    <label for="soll-thu" data-i18n="weekday-thu">Do</label>
                     <input type="number" id="soll-thu" min="0" max="24" step="0.1" required>
                   </div>
                   <div class="soll-day">
-                    <label for="soll-fri">Fr</label>
+                    <label for="soll-fri" data-i18n="weekday-fri">Fr</label>
                     <input type="number" id="soll-fri" min="0" max="24" step="0.1" required>
                   </div>
                   <div class="soll-day">
-                    <label for="soll-sat">Sa</label>
+                    <label for="soll-sat" data-i18n="weekday-sat">Sa</label>
                     <input type="number" id="soll-sat" min="0" max="24" step="0.1" required>
                   </div>
                   <div class="soll-day">
-                    <label for="soll-sun">So</label>
+                    <label for="soll-sun" data-i18n="weekday-sun">So</label>
                     <input type="number" id="soll-sun" min="0" max="24" step="0.1" required>
                   </div>
                 </div>
 
-                <button type="submit" class="btn primary">Einstellungen speichern</button>
+                <button type="submit" class="btn primary" data-i18n="settings-btn-save">Einstellungen speichern</button>
               </form>
             </div>
 
             <!-- Server Sync Config -->
             <div class="settings-card glass">
-              <h3>Synchronisation (Cloud / SQLite)</h3>
+              <h3 data-i18n="settings-sync-title">Synchronisation (Cloud / SQLite)</h3>
               <div class="sync-status-box">
-                <p>Status: <strong id="sync-status-text">Nicht verbunden</strong></p>
-                <p>Letzter Abgleich: <span id="sync-last-time">Nie</span></p>
+                <p><span data-i18n="settings-sync-status-label">Status:</span> <strong id="sync-status-text" data-i18n="settings-sync-status-disconnected">Nicht verbunden</strong></p>
+                <p><span data-i18n="settings-sync-last-label">Letzter Abgleich:</span> <span id="sync-last-time" data-i18n="settings-sync-never">Nie</span></p>
               </div>
               <div class="form-group">
-                <label for="sync-server-url">Server URL</label>
+                <label for="sync-server-url" data-i18n="settings-sync-label-server">Server URL</label>
                 <input type="url" id="sync-server-url" placeholder="http://localhost:8055">
               </div>
               <div class="sync-actions">
-                <button id="btn-sync-now" class="btn primary">Jetzt abgleichen</button>
-                <button id="btn-export-csv" class="btn secondary">Als CSV exportieren</button>
-                <button id="btn-export-backup" class="btn secondary">Backup (JSON) laden/speichern</button>
+                <button id="btn-sync-now" class="btn primary" data-i18n="settings-sync-btn-now">Jetzt abgleichen</button>
+                <button id="btn-export-csv" class="btn secondary" data-i18n="settings-sync-btn-csv">Als CSV exportieren</button>
+                <button id="btn-export-backup" class="btn secondary" data-i18n="settings-sync-btn-backup">Backup (JSON) laden/speichern</button>
               </div>
             </div>
           </div>
@@ -348,19 +362,19 @@
       <nav class="app-nav glass">
         <button class="nav-item active" data-tab="tab-punch">
           <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-          <span>Stempel</span>
+          <span data-i18n="nav-punch">Stempel</span>
         </button>
         <button class="nav-item" data-tab="tab-history">
           <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-          <span>Zeiten</span>
+          <span data-i18n="nav-times">Zeiten</span>
         </button>
         <button class="nav-item" data-tab="tab-reports">
           <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-          <span>Berichte</span>
+          <span data-i18n="nav-reports">Berichte</span>
         </button>
         <button class="nav-item" data-tab="tab-settings">
           <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          <span>Optionen</span>
+          <span data-i18n="nav-options">Optionen</span>
         </button>
       </nav>
     </div>
@@ -372,51 +386,51 @@
   <!-- A. Create User Modal -->
   <dialog id="dlg-create-user" class="glass-dialog">
     <form method="dialog" id="form-create-user">
-      <h3>Neuen Benutzer erstellen</h3>
+      <h3 data-i18n="create-title">Neuen Benutzer erstellen</h3>
       <div class="form-group">
-        <label for="new-user-name">Name</label>
+        <label for="new-user-name" data-i18n="create-label-name">Name</label>
         <input type="text" id="new-user-name" required>
       </div>
       <div class="form-group">
-        <label for="new-user-pin">4-stellige PIN</label>
-        <input type="password" id="new-user-pin" pattern="[0-9]{4}" required maxlength="4" placeholder="z. B. 1234">
+        <label for="new-user-pin" data-i18n="create-label-pin">4-stellige PIN</label>
+        <input type="password" id="new-user-pin" pattern="[0-9]{4}" required maxlength="4" data-i18n-placeholder="create-placeholder-pin" placeholder="z. B. 1234">
       </div>
       
-      <h4 class="settings-sub">Wochenstunden (Soll)</h4>
+      <h4 class="settings-sub" data-i18n="create-target-hours">Wochenstunden (Soll)</h4>
       <div class="soll-week-inputs small-inputs">
         <div class="soll-day">
-          <label for="new-soll-mon">Mo</label>
+          <label for="new-soll-mon" data-i18n="weekday-mon">Mo</label>
           <input type="number" id="new-soll-mon" min="0" max="24" step="0.5" value="8" required>
         </div>
         <div class="soll-day">
-          <label for="new-soll-tue">Di</label>
+          <label for="new-soll-tue" data-i18n="weekday-tue">Di</label>
           <input type="number" id="new-soll-tue" min="0" max="24" step="0.5" value="8" required>
         </div>
         <div class="soll-day">
-          <label for="new-soll-wed">Mi</label>
+          <label for="new-soll-wed" data-i18n="weekday-wed">Mi</label>
           <input type="number" id="new-soll-wed" min="0" max="24" step="0.5" value="8" required>
         </div>
         <div class="soll-day">
-          <label for="new-soll-thu">Do</label>
+          <label for="new-soll-thu" data-i18n="weekday-thu">Do</label>
           <input type="number" id="new-soll-thu" min="0" max="24" step="0.5" value="8" required>
         </div>
         <div class="soll-day">
-          <label for="new-soll-fri">Fr</label>
+          <label for="new-soll-fri" data-i18n="weekday-fri">Fr</label>
           <input type="number" id="new-soll-fri" min="0" max="24" step="0.5" value="6.5" required>
         </div>
         <div class="soll-day">
-          <label for="new-soll-sat">Sa</label>
+          <label for="new-soll-sat" data-i18n="weekday-sat">Sa</label>
           <input type="number" id="new-soll-sat" min="0" max="24" step="0.5" value="0" required>
         </div>
         <div class="soll-day">
-          <label for="new-soll-sun">So</label>
+          <label for="new-soll-sun" data-i18n="weekday-sun">So</label>
           <input type="number" id="new-soll-sun" min="0" max="24" step="0.5" value="0" required>
         </div>
       </div>
 
       <div class="dialog-actions">
-        <button type="button" class="btn secondary" id="btn-cancel-create-user" autofocus>Abbrechen</button>
-        <button type="submit" class="btn primary">Erstellen</button>
+        <button type="button" class="btn secondary" id="btn-cancel-create-user" autofocus data-i18n="create-btn-cancel">Abbrechen</button>
+        <button type="submit" class="btn primary" data-i18n="create-btn-submit">Erstellen</button>
       </div>
     </form>
   </dialog>
@@ -424,11 +438,11 @@
   <!-- B. Edit / Add Manual Time Entry Modal -->
   <dialog id="dlg-manual-punch" class="glass-dialog">
     <form method="dialog" id="form-manual-punch">
-      <h3 id="manual-punch-title">Arbeitszeit eintragen</h3>
+      <h3 id="manual-punch-title" data-i18n="manual-title-add">Arbeitszeit eintragen</h3>
       <input type="hidden" id="edit-punch-id">
       
       <div class="form-group">
-        <label for="manual-date">Datum</label>
+        <label for="manual-date" data-i18n="manual-label-date">Datum</label>
         <input type="date" id="manual-date" required>
       </div>
 
@@ -436,16 +450,16 @@
       <div id="single-punch-fields">
         <div class="form-group-row">
           <div class="form-group">
-            <label for="manual-start-time">Kommen (Beginn)</label>
+            <label for="manual-start-time" data-i18n="manual-label-in">Kommen (Beginn)</label>
             <input type="time" id="manual-start-time">
           </div>
           <div class="form-group">
-            <label for="manual-end-time">Gehen (Ende)</label>
+            <label for="manual-end-time" data-i18n="manual-label-out">Gehen (Ende)</label>
             <input type="time" id="manual-end-time">
           </div>
         </div>
         <div class="form-group" style="margin-top: 10px;">
-          <label for="manual-break">Gestempelte Pause (in Minuten)</label>
+          <label for="manual-break" data-i18n="manual-label-break">Gestempelte Pause (in Minuten)</label>
           <input type="number" id="manual-break" min="0" max="1440" value="0">
         </div>
         <div id="single-punch-summary" style="margin-top: 12px; font-size: 0.85rem; padding: 10px 12px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-card-border); line-height: 1.4; display: none;">
@@ -455,13 +469,13 @@
 
       <!-- Multi-punch edit fields (shown when editing existing day) -->
       <div id="multi-punch-fields" style="display: none; margin-top: 10px;">
-        <label style="font-size: 0.85rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 8px; display: block;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 8px; display: block;" data-i18n="manual-edit-individual">
           Einzelne Stempelungen bearbeiten
         </label>
         <div id="punches-list-container">
           <!-- Dynamic punch rows will be rendered here -->
         </div>
-        <button type="button" class="btn secondary small" id="btn-add-punch-row" style="margin-top: 10px; width: 100%;">
+        <button type="button" class="btn secondary small" id="btn-add-punch-row" style="margin-top: 10px; width: 100%;" data-i18n="manual-btn-add-punch">
           + Stempelung hinzufügen
         </button>
         <div id="edit-punches-summary" style="margin-top: 12px; font-size: 0.85rem; padding: 10px 12px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-card-border); line-height: 1.4;">
@@ -470,9 +484,9 @@
       </div>
 
       <div class="dialog-actions" style="margin-top: 20px;">
-        <button type="button" class="btn secondary" id="btn-cancel-manual-punch" autofocus>Abbrechen</button>
-        <button type="button" class="btn danger hidden" id="btn-delete-punch">Eintrag löschen</button>
-        <button type="submit" class="btn primary">Speichern</button>
+        <button type="button" class="btn secondary" id="btn-cancel-manual-punch" autofocus data-i18n="manual-btn-cancel">Abbrechen</button>
+        <button type="button" class="btn danger hidden" id="btn-delete-punch" data-i18n="manual-btn-delete">Eintrag löschen</button>
+        <button type="submit" class="btn primary" data-i18n="manual-btn-save">Speichern</button>
       </div>
     </form>
   </dialog>
@@ -480,24 +494,24 @@
   <!-- C. Add Time Off Modal -->
   <dialog id="dlg-timeoff" class="glass-dialog">
     <form method="dialog" id="form-timeoff">
-      <h3>Freien Tag / Fehlzeit eintragen</h3>
+      <h3 data-i18n="timeoff-title">Freien Tag / Fehlzeit eintragen</h3>
       <div class="form-group">
-        <label for="timeoff-date">Datum</label>
+        <label for="timeoff-date" data-i18n="timeoff-label-date">Datum</label>
         <input type="date" id="timeoff-date" required>
       </div>
       <div class="form-group">
-        <label for="timeoff-type">Art der Abwesenheit</label>
+        <label for="timeoff-type" data-i18n="timeoff-label-type">Art der Abwesenheit</label>
         <select id="timeoff-type" class="custom-select" required>
-          <option value="vacation">Urlaubstag</option>
-          <option value="sick">Krankheitsfall (Krankstand)</option>
-          <option value="holiday">Feiertag</option>
-          <option value="compensation">Zeitausgleich</option>
+          <option value="vacation" data-i18n="timeoff-type-vacation">Urlaubstag</option>
+          <option value="sick" data-i18n="timeoff-type-sick">Krankheitsfall (Krankstand)</option>
+          <option value="holiday" data-i18n="timeoff-type-holiday">Feiertag</option>
+          <option value="compensation" data-i18n="timeoff-type-compensation">Zeitausgleich</option>
         </select>
       </div>
 
       <div class="dialog-actions">
-        <button type="button" class="btn secondary" id="btn-cancel-timeoff" autofocus>Abbrechen</button>
-        <button type="submit" class="btn primary">Speichern</button>
+        <button type="button" class="btn secondary" id="btn-cancel-timeoff" autofocus data-i18n="timeoff-btn-cancel">Abbrechen</button>
+        <button type="submit" class="btn primary" data-i18n="timeoff-btn-save">Speichern</button>
       </div>
     </form>
   </dialog>
@@ -505,18 +519,18 @@
   <!-- D. Backup Import / Export Dialog -->
   <dialog id="dlg-backup" class="glass-dialog">
     <form method="dialog">
-      <h3>Backup verwalten</h3>
-      <p>Hier kannst du alle lokalen Daten als Backup sichern oder wiederherstellen.</p>
+      <h3 data-i18n="backup-title">Backup verwalten</h3>
+      <p data-i18n="backup-desc">Hier kannst du alle lokalen Daten als Backup sichern oder wiederherstellen.</p>
       
       <div class="form-group">
-        <label for="backup-json-text">Backup-Daten (JSON)</label>
-        <textarea id="backup-json-text" class="custom-textarea" rows="6" placeholder="Backup-JSON hier einfügen..."></textarea>
+        <label for="backup-json-text" data-i18n="backup-label-json">Backup-Daten (JSON)</label>
+        <textarea id="backup-json-text" class="custom-textarea" rows="6" data-i18n-placeholder="backup-placeholder" placeholder="Backup-JSON hier einfügen..."></textarea>
       </div>
 
       <div class="dialog-actions">
-        <button type="button" class="btn secondary" id="btn-close-backup" autofocus>Schließen</button>
-        <button type="button" class="btn primary" id="btn-import-backup-action">Importieren</button>
-        <button type="button" class="btn primary" id="btn-copy-backup-action">Kopieren & Download</button>
+        <button type="button" class="btn secondary" id="btn-close-backup" autofocus data-i18n="backup-btn-close">Schließen</button>
+        <button type="button" class="btn primary" id="btn-import-backup-action" data-i18n="backup-btn-import">Importieren</button>
+        <button type="button" class="btn primary" id="btn-copy-backup-action" data-i18n="backup-btn-copy">Kopieren & Download</button>
       </div>
     </form>
   </dialog>
@@ -524,17 +538,17 @@
   <!-- E. Server Connection Dialog (Lock Screen) -->
   <dialog id="dlg-server-settings" class="glass-dialog">
     <form method="dialog" id="form-server-settings">
-      <h3>Server-Verbindung</h3>
-      <p>Konfiguriere den Server, um Profile und Arbeitszeiten zu synchronisieren.</p>
+      <h3 data-i18n="server-title">Server-Verbindung</h3>
+      <p data-i18n="server-desc">Konfiguriere den Server, um Profile und Arbeitszeiten zu synchronisieren.</p>
       
       <div class="form-group">
-        <label for="lock-sync-server-url">Server-URL</label>
+        <label for="lock-sync-server-url" data-i18n="server-label-url">Server-URL</label>
         <input type="url" id="lock-sync-server-url" required placeholder="https://stempelo.dobrounig.net">
       </div>
 
       <div class="dialog-actions">
-        <button type="button" class="btn secondary" id="btn-close-server-settings" autofocus>Abbrechen</button>
-        <button type="button" class="btn primary" id="btn-save-server-settings">Speichern & Abgleichen</button>
+        <button type="button" class="btn secondary" id="btn-close-server-settings" autofocus data-i18n="server-btn-cancel">Abbrechen</button>
+        <button type="button" class="btn primary" id="btn-save-server-settings" data-i18n="server-btn-save">Speichern & Abgleichen</button>
       </div>
     </form>
   </dialog>

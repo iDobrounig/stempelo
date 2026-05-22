@@ -1,9 +1,10 @@
-const CACHE_NAME = 'stempelo-v17';
+const CACHE_NAME = 'stempelo-v18';
 const ASSETS = [
   './',
   'index.html',
   'index.css',
   'app.js',
+  'translations.js',
   'syncService.js',
   'temporal-polyfill.js',
   'manifest.json',

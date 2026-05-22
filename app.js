@@ -1,4 +1,5 @@
 import { SyncService } from './syncService.js';
+import { t, setLanguage, getLanguage, translateDOM } from './translations.js';
 
 // Resolve Temporal (native or local polyfill)
 let Temporal;
@@ -138,7 +139,7 @@ const dbAdapter = {
     }
 
     // Merge/sync with localStorage for known keys
-    const keys = ['sync-server-url', 'sync-last-time', 'last-logged-user-id', 'color-scheme', 'session-expiry', 'active-tab'];
+    const keys = ['sync-server-url', 'sync-last-time', 'last-logged-user-id', 'color-scheme', 'session-expiry', 'active-tab', 'language'];
     
     // Also sync user-break-* keys if they exist in IndexedDB or localStorage
     Object.keys(SyncService.configCache).forEach(key => {
@@ -388,6 +389,39 @@ function storageRemoveItem(key) {
 }
 
 // ----------------------------------------------------
+// 1.8 Global Language / Localization Helper
+// ----------------------------------------------------
+function applyGlobalLanguage(lang) {
+  if (!lang) lang = 'de';
+  setLanguage(lang);
+  storageSetItem('language', lang);
+  translateDOM();
+  
+  // Synchronize lock screen switcher state
+  document.querySelectorAll('.btn-lock-lang').forEach(btn => {
+    if (btn.getAttribute('data-lang') === lang) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // Keep settings language dropdown selector value in sync
+  const setLangSelect = document.getElementById('set-user-lang');
+  if (setLangSelect) {
+    setLangSelect.value = lang;
+  }
+
+  // Refresh dynamic parts of the DOM that are populated by JS
+  if (currentUser) {
+    if (currentTab === 'tab-punch') updatePunchTab();
+    else if (currentTab === 'tab-history') updateHistoryTab();
+    else if (currentTab === 'tab-reports') updateReportsTab();
+    else if (currentTab === 'tab-settings') updateSettingsTab();
+  }
+}
+
+// ----------------------------------------------------
 // 2. State & Constants
 // ----------------------------------------------------
 let users = [];
@@ -504,11 +538,12 @@ function calculateDayDetails(targetSoll, punches, timeOffDay) {
  * Formats a duration in decimal hours (e.g. 7.5h) or human readable (e.g. 7 Std. 30 Min.)
  */
 function formatHours(hours, formatType = 'decimal') {
-  if (isNaN(hours)) return '0,0h';
+  if (isNaN(hours)) return getLanguage() === 'de' ? '0,0h' : '0.00h';
   
   if (formatType === 'decimal') {
     const sign = hours < 0 ? '-' : '';
-    return `${sign}${Math.abs(hours).toFixed(2).replace('.', ',')}h`;
+    const separator = getLanguage() === 'de' ? ',' : '.';
+    return `${sign}${Math.abs(hours).toFixed(2).replace('.', separator)}h`;
   } else {
     const sign = hours < 0 ? '-' : '';
     const absMinutes = Math.round(Math.abs(hours) * 60);
@@ -556,6 +591,16 @@ async function populateUserSelect() {
     document.getElementById('pin-entry-area').classList.remove('hidden');
     select.value = storageGetItem('last-logged-user-id') || users[0].id;
     resetPinEntry();
+
+    if (!currentUser) {
+      const initialUserId = select.value;
+      if (initialUserId) {
+        const initialUser = users.find(u => u.id === initialUserId);
+        if (initialUser && initialUser.language) {
+          applyGlobalLanguage(initialUser.language);
+        }
+      }
+    }
   }
 }
 
@@ -625,13 +670,13 @@ async function updatePunchTab() {
 
   if (stats.activePunch) {
     // Clock is running
-    statusIndicator.textContent = 'Arbeitszeit läuft';
+    statusIndicator.textContent = t('punch-status-working');
     statusIndicator.className = 'status-badge working';
 
     btnPunchIn.classList.add('hidden');
     btnPunchOut.classList.remove('hidden');
     btnBreakToggle.classList.remove('hidden');
-    btnBreakToggle.textContent = 'Pause starten';
+    btnBreakToggle.textContent = t('punch-btn-break-start');
 
     // Start Live Timer
     const startInstant = Temporal.Instant.from(stats.activePunch.start_time);
@@ -660,13 +705,13 @@ async function updatePunchTab() {
 
   } else if (storageGetItem(`user-break-active-${currentUser.id}`) === 'true') {
     // User is on break (Break timer)
-    statusIndicator.textContent = 'In der Pause';
+    statusIndicator.textContent = t('punch-status-onbreak');
     statusIndicator.className = 'status-badge onbreak';
 
     btnPunchIn.classList.add('hidden');
     btnPunchOut.classList.remove('hidden');
     btnBreakToggle.classList.remove('hidden');
-    btnBreakToggle.textContent = 'Pause beenden';
+    btnBreakToggle.textContent = t('punch-btn-break-end');
 
     // Live break timer
     const breakStartStr = storageGetItem(`user-break-start-${currentUser.id}`);
@@ -689,7 +734,7 @@ async function updatePunchTab() {
 
   } else {
     // Clock is stopped
-    statusIndicator.textContent = 'Nicht eingestempelt';
+    statusIndicator.textContent = t('punch-status-stopped');
     statusIndicator.className = 'status-badge stopped';
 
     btnPunchIn.classList.remove('hidden');
@@ -823,16 +868,16 @@ async function updateHistoryTab() {
 
     // Date column
     const tdDate = document.createElement('td');
-    tdDate.innerHTML = `<strong>${dateObj.toLocaleString('de', { weekday: 'short' })}</strong>, ${dateObj.toLocaleString('de', { day: '2-digit', month: '2-digit' })}`;
+    tdDate.innerHTML = `<strong>${dateObj.toLocaleString(getLanguage(), { weekday: 'short' })}</strong>, ${dateObj.toLocaleString(getLanguage(), { day: '2-digit', month: '2-digit' })}`;
     tr.appendChild(tdDate);
 
     // Type column
     const tdType = document.createElement('td');
     let typeTagHtml = '';
     if (stats.timeOffType) {
-      typeTagHtml = `<span class="tag-badge ${stats.timeOffType}">${stats.statusText}</span>`;
+      typeTagHtml = `<span class="tag-badge ${stats.timeOffType}">${t('type-' + stats.timeOffType)}</span>`;
     } else {
-      typeTagHtml = `<span class="tag-badge work">Arbeit</span>`;
+      typeTagHtml = `<span class="tag-badge work">${t('type-work')}</span>`;
     }
     tdType.innerHTML = typeTagHtml;
     tr.appendChild(tdType);
@@ -843,10 +888,10 @@ async function updateHistoryTab() {
       tdTimes.textContent = '-';
     } else {
       const punchTimes = dateData.punches.map(p => {
-        const start = new Date(p.start_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
+        const start = new Date(p.start_time).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' });
         const end = p.end_time 
-          ? new Date(p.end_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' })
-          : 'Aktiv...';
+          ? new Date(p.end_time).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' })
+          : t('history-active-punch');
         return `${start} - ${end}`;
       }).join(', ');
       tdTimes.textContent = punchTimes || '-';
@@ -863,7 +908,7 @@ async function updateHistoryTab() {
     if (stats.timeOffType && dateData.punches.length === 0) {
       tdBreak.textContent = '-';
     } else {
-      const autoStr = stats.autoBreakMinutes > 0 ? ` (+${stats.autoBreakMinutes}m ges.)` : '';
+      const autoStr = stats.autoBreakMinutes > 0 ? ` (+${stats.autoBreakMinutes}m ${getLanguage() === 'de' ? 'ges.' : 'ded.'})` : '';
       tdBreak.textContent = `${stats.manualBreakMinutes}m${autoStr}`;
       if (stats.hasBreakAlert) tdBreak.className = 'text-warning';
     }
@@ -886,9 +931,9 @@ async function updateHistoryTab() {
       // Delete time off
       const btnDel = document.createElement('button');
       btnDel.className = 'btn secondary small text-danger';
-      btnDel.innerHTML = 'Löschen';
+      btnDel.innerHTML = t('history-action-delete');
       btnDel.onclick = async () => {
-        if (confirm('Möchtest du diese Abwesenheit löschen?')) {
+        if (confirm(t('alert-confirm-delete-absence'))) {
           await dbAdapter.delete('time_off', dateData.timeOff.id, currentUser.id);
           updateHistoryTab();
           triggerSilentSync();
@@ -899,7 +944,7 @@ async function updateHistoryTab() {
       // Edit punch times
       const btnEdit = document.createElement('button');
       btnEdit.className = 'btn secondary small';
-      btnEdit.innerHTML = 'Bearbeiten';
+      btnEdit.innerHTML = t('history-action-edit');
       btnEdit.onclick = () => showEditPunchDialog(dateStr, dateData.punches);
       tdActions.appendChild(btnEdit);
     } else {
@@ -915,7 +960,7 @@ async function updateHistoryTab() {
     const td = document.createElement('td');
     td.colSpan = 8;
     td.className = 'empty-filter-row';
-    td.textContent = 'Keine Einträge für die gewählten Filter gefunden.';
+    td.textContent = t('history-empty');
     tr.appendChild(td);
     tbody.appendChild(tr);
   } else {
@@ -925,7 +970,7 @@ async function updateHistoryTab() {
       
       const tdLabel = document.createElement('td');
       tdLabel.colSpan = 2;
-      tdLabel.innerHTML = '<strong>Gesamt (gefiltert)</strong>';
+      tdLabel.innerHTML = `<strong>${t('history-total-filtered')}</strong>`;
       tr.appendChild(tdLabel);
       
       const tdTimes = document.createElement('td');
@@ -937,7 +982,7 @@ async function updateHistoryTab() {
       tr.appendChild(tdIst);
       
       const tdBreak = document.createElement('td');
-      const autoBreakStr = totalAutoBreak > 0 ? ` (+${totalAutoBreak}m ges.)` : '';
+      const autoBreakStr = totalAutoBreak > 0 ? ` (+${totalAutoBreak}m ${getLanguage() === 'de' ? 'ges.' : 'ded.'})` : '';
       tdBreak.textContent = `${totalManualBreak}m${autoBreakStr}`;
       tr.appendChild(tdBreak);
       
@@ -1024,13 +1069,13 @@ async function exportHistoryToCSV() {
 
   // Headers matching table
   csvRows.push([
-    '"Datum"',
-    '"Typ"',
-    '"Arbeitszeit (Kommen - Gehen)"',
-    '"Ist (Netto)"',
-    '"Pause (gest./ges.)"',
-    '"Soll"',
-    '"Status/Saldo"'
+    `"${t('history-th-date')}"`,
+    `"${t('history-th-type')}"`,
+    `"${t('history-th-worktime')}"`,
+    `"${t('history-th-actual')}"`,
+    `"${t('history-th-break')}"`,
+    `"${t('history-th-target')}"`,
+    `"${t('history-th-status')}"`
   ].join(';'));
 
   const escapeCsv = (str) => {
@@ -1075,23 +1120,23 @@ async function exportHistoryToCSV() {
 
     renderedCount++;
 
-    const dateStrFormatted = `${dateObj.toLocaleString('de', { weekday: 'short' })}, ${dateObj.toLocaleString('de', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
-    const typeLabel = stats.timeOffType ? stats.statusText : 'Arbeit';
+    const dateStrFormatted = `${dateObj.toLocaleString(getLanguage(), { weekday: 'short' })}, ${dateObj.toLocaleString(getLanguage(), { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+    const typeLabel = stats.timeOffType ? t('type-' + stats.timeOffType) : t('type-work');
 
     let punchTimes = '-';
     if (!(stats.timeOffType && !isCreditedWorkDone(dateData.punches))) {
       punchTimes = dateData.punches.map(p => {
-        const start = new Date(p.start_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' });
+        const start = new Date(p.start_time).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' });
         const end = p.end_time 
-          ? new Date(p.end_time).toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' })
-          : 'Aktiv...';
+          ? new Date(p.end_time).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' })
+          : t('history-active-punch');
         return `${start} - ${end}`;
       }).join(', ');
       if (!punchTimes) punchTimes = '-';
     }
 
     const istStr = formatHours(stats.istHours);
-    const autoBreakStr = stats.autoBreakMinutes > 0 ? ` (+${stats.autoBreakMinutes}m ges.)` : '';
+    const autoBreakStr = stats.autoBreakMinutes > 0 ? ` (+${stats.autoBreakMinutes}m ${getLanguage() === 'de' ? 'ges.' : 'ded.'})` : '';
     const breakStr = `${stats.manualBreakMinutes}m${autoBreakStr}`;
     const sollStr = formatHours(stats.sollHours);
     const saldoStr = formatHours(stats.saldoHours);
@@ -1109,15 +1154,15 @@ async function exportHistoryToCSV() {
 
   if (renderedCount === 0) {
     csvRows.push([
-      escapeCsv('Keine Einträge für die gewählten Filter gefunden.'),
+      escapeCsv(t('history-empty')),
       '""', '""', '""', '""', '""', '""'
     ].join(';'));
   } else {
     // Sum footer row
-    const autoBreakStr = totalAutoBreak > 0 ? ` (+${totalAutoBreak}m ges.)` : '';
+    const autoBreakStr = totalAutoBreak > 0 ? ` (+${totalAutoBreak}m ${getLanguage() === 'de' ? 'ges.' : 'ded.'})` : '';
     const totalBreakStr = `${totalManualBreak}m${autoBreakStr}`;
     csvRows.push([
-      escapeCsv('Gesamt (gefiltert)'),
+      escapeCsv(t('history-total-filtered')),
       '""',
       escapeCsv('-'),
       escapeCsv(formatHours(totalIstHours)),
@@ -1250,9 +1295,15 @@ async function updateReportsTab() {
   saldoCard.className = 'report-stat-card glass ' + (totalSaldo >= 0 ? 'border-green' : 'border-red');
 
   const totalFree = countVacation + countSick + countHoliday + countCompensation;
-  document.getElementById('rep-free-days').textContent = `${totalFree} Tag${totalFree === 1 ? '' : 'e'}`;
+  const suffix = getLanguage() === 'de' ? (totalFree === 1 ? '' : 'e') : (totalFree === 1 ? '' : 's');
+  document.getElementById('rep-free-days').textContent = t('reports-free-days', { count: totalFree, suffix: suffix });
   document.getElementById('rep-free-days-breakdown').textContent = 
-    `Urlaub: ${countVacation} | Krank: ${countSick} | Feiertag: ${countHoliday} | ZA: ${countCompensation}`;
+    t('reports-free-days-breakdown', {
+      vacation: countVacation,
+      sick: countSick,
+      holiday: countHoliday,
+      compensation: countCompensation
+    });
 
   // Audit Logs rendering
   const auditLogs = await dbAdapter.getAll('audit_logs');
@@ -1262,26 +1313,28 @@ async function updateReportsTab() {
   logContainer.innerHTML = '';
 
   if (userLogs.length === 0) {
-    logContainer.innerHTML = '<p class="text-muted text-center" style="padding: 20px;">Keine Änderungen protokolliert.</p>';
+    logContainer.innerHTML = `<p class="text-muted text-center" style="padding: 20px;">${t('reports-audit-empty')}</p>`;
   } else {
     userLogs.forEach(log => {
       const entry = document.createElement('div');
       entry.className = 'audit-log-entry';
 
-      const time = new Date(log.timestamp).toLocaleString('de', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const time = new Date(log.timestamp).toLocaleString(getLanguage(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
       
       let details = '';
       if (log.action === 'insert') {
-        details = `Zeit manuell hinzugefügt für ${log.record_id}`;
+        details = t('reports-audit-insert', { id: log.record_id });
       } else if (log.action === 'update') {
-        details = `Eintrag bearbeitet.`;
+        details = t('reports-audit-update');
       } else if (log.action === 'delete') {
-        details = `Eintrag gelöscht (${log.table_name}).`;
+        details = t('reports-audit-delete', { tableName: log.table_name });
       }
+
+      const actionText = t('reports-audit-action', { action: log.action.toUpperCase() });
 
       entry.innerHTML = `
         <span class="audit-log-time">${time}</span>
-        <p>${details} (Aktion: <strong>${log.action.toUpperCase()}</strong>)</p>
+        <p>${details} ${actionText}</p>
       `;
       logContainer.appendChild(entry);
     });
@@ -1305,15 +1358,17 @@ function updateSettingsTab() {
   document.getElementById('soll-sat').value = currentUser.daily_soll.sat || 0;
   document.getElementById('soll-sun').value = currentUser.daily_soll.sun || 0;
 
+  document.getElementById('set-user-lang').value = currentUser.language || 'de';
+
   // Sync Info
   const serverUrl = SyncService.getServerUrl();
   document.getElementById('sync-server-url').value = serverUrl;
   
   const lastSync = SyncService.getLastSyncTime();
   document.getElementById('sync-last-time').textContent = lastSync 
-    ? new Date(lastSync).toLocaleString('de') 
-    : 'Nie';
-  document.getElementById('sync-status-text').textContent = serverUrl ? 'Verbindungsbereit' : 'Nicht konfiguriert';
+    ? new Date(lastSync).toLocaleString(getLanguage()) 
+    : t('settings-sync-never');
+  document.getElementById('sync-status-text').textContent = serverUrl ? t('settings-sync-status-connected') : t('settings-sync-status-disconnected');
 }
 
 // ----------------------------------------------------
@@ -1657,6 +1712,7 @@ document.getElementById('form-create-user').onsubmit = async (e) => {
     id: crypto.randomUUID(),
     name: name,
     pin: hashedPin,
+    language: getLanguage() || 'de',
     weekly_hours: parseFloat(document.getElementById('new-soll-mon').value) * 5, // approximation or summary
     daily_soll: {
       mon: parseFloat(document.getElementById('new-soll-mon').value) || 0,
@@ -1705,6 +1761,12 @@ document.getElementById('pin-ok').onclick = async () => {
       storageSetItem('last-logged-user-id', user.id);
       refreshSession();
       
+      if (user.language) {
+        applyGlobalLanguage(user.language);
+      } else {
+        applyGlobalLanguage(getLanguage() || 'de');
+      }
+      
       // Switch screen
       document.getElementById('lock-screen').classList.remove('active');
       document.getElementById('main-screen').classList.remove('hidden');
@@ -1723,7 +1785,7 @@ document.getElementById('pin-ok').onclick = async () => {
     }
   } catch (error) {
     console.error('Anmeldefehler:', error);
-    alert('Fehler bei der Anmeldung: ' + error.message);
+    alert(t('alert-login-failed', { message: error.message }));
   }
 };
 
@@ -1853,7 +1915,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
     parsedRows.sort((a, b) => a.startVal.localeCompare(b.startVal));
 
     if (parsedRows.length === 0) {
-      if (confirm('Du hast alle Stempelungen entfernt. Möchtest du die Arbeitszeiten für diesen Tag löschen?')) {
+      if (confirm(t('alert-confirm-delete-all-punches'))) {
         for (const p of oldPunches) {
           await dbAdapter.delete('punches', p.id, currentUser.id);
         }
@@ -1873,7 +1935,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
       
       // 1. Check end time after start time
       if (current.endVal && current.endVal <= current.startVal) {
-        alert(`Ungültige Stempelung: Die Endzeit (${current.endVal}) muss nach der Startzeit (${current.startVal}) liegen.`);
+        alert(t('alert-invalid-punch-times', { endVal: current.endVal, startVal: current.startVal }));
         hasError = true;
         break;
       }
@@ -1883,7 +1945,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
         activeCount++;
         // Active punch must be the last one
         if (i !== parsedRows.length - 1) {
-          alert('Eine Stempelung ohne Endzeit (aktiv) kann nur die letzte Stempelung des Tages sein.');
+          alert(t('alert-active-punch-must-be-last'));
           hasError = true;
           break;
         }
@@ -1893,12 +1955,12 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
       if (i > 0) {
         const prev = parsedRows[i - 1];
         if (!prev.endVal) {
-          alert('Die vorherige Stempelung ist noch aktiv und hat keine Endzeit. Ein neuer Zeitraum kann erst nach einer Endzeit starten.');
+          alert(t('alert-previous-punch-active'));
           hasError = true;
           break;
         }
         if (current.startVal < prev.endVal) {
-          alert(`Überlappende Arbeitszeiten: Die Stempelung von ${current.startVal} bis ${current.endVal || 'aktiv'} überlappt mit der vorherigen Stempelung (endet um ${prev.endVal}).`);
+          alert(t('alert-overlapping-punches', { startVal: current.startVal, endVal: current.endVal || t('history-active-punch'), prevEndVal: prev.endVal }));
           hasError = true;
           break;
         }
@@ -1906,7 +1968,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
     }
     
     if (activeCount > 1) {
-      alert('Es kann maximal eine aktive Stempelung (ohne Endzeit) geben.');
+      alert(t('alert-max-one-active'));
       hasError = true;
     }
     
@@ -1932,7 +1994,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
         });
       } catch (err) {
         console.error('Failed to parse date/time with Temporal:', err);
-        alert('Fehler beim Konvertieren der Zeiten. Bitte prüfe deine Eingaben.');
+        alert(t('alert-time-conversion-error'));
         return;
       }
     }
@@ -2016,7 +2078,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
 document.getElementById('btn-delete-punch').onclick = async () => {
   const id = document.getElementById('edit-punch-id').value;
   const dateStr = document.getElementById('manual-date').value;
-  if (id && confirm('Möchtest du die Arbeitszeiten für diesen Tag wirklich löschen?')) {
+  if (id && confirm(t('alert-confirm-delete-day'))) {
     // Delete all punches for this user on this day
     const allPunches = await dbAdapter.getAll('punches');
     const todayPunches = allPunches.filter(p => p.user_id === currentUser.id && p.start_time.startsWith(dateStr));
@@ -2080,8 +2142,10 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
 
   const name = document.getElementById('set-user-name').value;
   const pin = document.getElementById('set-user-pin').value;
+  const lang = document.getElementById('set-user-lang').value;
 
   currentUser.name = name;
+  currentUser.language = lang;
   if (pin && pin.length === 4) {
     currentUser.pin = await hashPIN(pin);
   }
@@ -2100,7 +2164,11 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
 
   await dbAdapter.put('users', currentUser);
   document.getElementById('current-user-name').textContent = name;
-  alert('Einstellungen gespeichert!');
+  
+  // Set the selected language globally
+  applyGlobalLanguage(lang);
+
+  alert(t('alert-settings-saved'));
   updateSettingsTab();
   triggerSilentSync();
 };
@@ -2133,17 +2201,42 @@ document.getElementById('btn-show-server-settings').onclick = () => {
   document.getElementById('btn-close-server-settings')?.focus({ preventScroll: true });
 };
 
+// Lock screen language switcher toggles
+document.querySelectorAll('.btn-lock-lang').forEach(btn => {
+  btn.onclick = () => {
+    const lang = btn.getAttribute('data-lang');
+    applyGlobalLanguage(lang);
+  };
+});
+
+// Dropdown user select changer language auto-apply
+document.getElementById('user-select').onchange = async () => {
+  resetPinEntry();
+  const userId = document.getElementById('user-select').value;
+  if (!userId) return;
+  const user = await dbAdapter.get('users', userId);
+  if (user && user.language) {
+    applyGlobalLanguage(user.language);
+  }
+};
+
+// Settings language selection change preview
+document.getElementById('set-user-lang').onchange = () => {
+  const lang = document.getElementById('set-user-lang').value;
+  applyGlobalLanguage(lang);
+};
+
 document.getElementById('btn-save-server-settings').onclick = async () => {
   const saveBtn = document.getElementById('btn-save-server-settings');
   const serverUrl = document.getElementById('lock-sync-server-url').value.trim();
   
   if (!serverUrl) {
-    alert('Bitte gib eine gültige Server-URL ein.');
+    alert(t('alert-valid-url-required'));
     return;
   }
 
   saveBtn.disabled = true;
-  saveBtn.textContent = 'Verbinde...';
+  saveBtn.textContent = getLanguage() === 'de' ? 'Verbinde...' : 'Connecting...';
 
   SyncService.setServerUrl(serverUrl);
 
@@ -2154,14 +2247,14 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
     }
     const res = await SyncService.sync(dbAdapter);
     await populateUserSelect();
-    alert(`Verbindung erfolgreich! ${res.appliedCount} Änderungen synchronisiert.`);
+    alert(t('alert-connection-success', { count: res.appliedCount }));
     document.getElementById('dlg-server-settings').close();
   } catch (error) {
     console.error(error);
-    alert(`Fehler beim Verbinden: ${error.message}`);
+    alert(t('alert-connection-failed', { message: error.message }));
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Speichern & Abgleichen';
+    saveBtn.textContent = t('server-btn-save');
   }
 };
 
@@ -2195,21 +2288,21 @@ document.getElementById('btn-export-csv').onclick = () => exportHistoryToCSV();
 document.getElementById('btn-sync-now').onclick = async () => {
   const syncBtn = document.getElementById('btn-sync-now');
   syncBtn.disabled = true;
-  syncBtn.textContent = 'Synchronisiere...';
+  syncBtn.textContent = getLanguage() === 'de' ? 'Synchronisiere...' : 'Syncing...';
 
   const serverUrl = document.getElementById('sync-server-url').value;
   SyncService.setServerUrl(serverUrl);
 
   try {
     const res = await SyncService.sync(dbAdapter);
-    document.getElementById('sync-last-time').textContent = new Date(res.serverTime).toLocaleString('de');
-    alert(`Synchronisation erfolgreich! ${res.appliedCount} Änderungen importiert.`);
+    document.getElementById('sync-last-time').textContent = new Date(res.serverTime).toLocaleString(getLanguage());
+    alert(t('alert-sync-success', { count: res.appliedCount }));
   } catch (error) {
     console.error(error);
-    alert(`Fehler beim Synchronisieren: ${error.message}`);
+    alert(t('alert-sync-failed', { message: error.message }));
   } finally {
     syncBtn.disabled = false;
-    syncBtn.textContent = 'Jetzt abgleichen';
+    syncBtn.textContent = t('settings-sync-btn-now');
     updateSettingsTab();
   }
 };
@@ -2240,17 +2333,17 @@ document.getElementById('btn-import-backup-action').onclick = async () => {
   try {
     const data = JSON.parse(jsonText);
     if (!data.users || !data.punches || !data.time_off) {
-      throw new Error('Ungültiges Backup-Format.');
+      throw new Error(getLanguage() === 'de' ? 'Ungültiges Backup-Format.' : 'Invalid backup format.');
     }
 
-    if (confirm('Achtung: Dies importiert alle Daten. Möchtest du fortfahren?')) {
+    if (confirm(t('alert-backup-import-confirm'))) {
       await dbAdapter.applyServerUpdates(data);
-      alert('Backup erfolgreich importiert!');
+      alert(t('alert-backup-import-success'));
       document.getElementById('dlg-backup').close();
       populateUserSelect();
     }
   } catch (error) {
-    alert(`Fehler beim Import: ${error.message}`);
+    alert(t('alert-backup-import-failed', { message: error.message }));
   }
 };
 
@@ -2259,7 +2352,7 @@ document.getElementById('btn-copy-backup-action').onclick = () => {
   copyText.select();
   copyText.setSelectionRange(0, 99999);
   navigator.clipboard.writeText(copyText.value);
-  alert('Backup in Zwischenablage kopiert!');
+  alert(t('alert-backup-copied'));
 };
 
 // Theme Toggle
@@ -2402,6 +2495,10 @@ async function initApp() {
     document.documentElement.style.colorScheme = colorScheme;
   }
 
+  // Apply language setting
+  const savedLang = storageGetItem('language') || 'de';
+  applyGlobalLanguage(savedLang);
+
   // Populate profiles initially
   await populateUserSelect();
 
@@ -2452,7 +2549,7 @@ async function initApp() {
       // Update last sync time display on settings tab if active
       const lastSyncTimeEl = document.getElementById('sync-last-time');
       if (lastSyncTimeEl) {
-        lastSyncTimeEl.textContent = new Date(res.serverTime).toLocaleString('de');
+        lastSyncTimeEl.textContent = new Date(res.serverTime).toLocaleString(getLanguage());
       }
 
       await populateUserSelect();

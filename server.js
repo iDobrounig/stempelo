@@ -54,11 +54,30 @@ function createTables() {
         pin TEXT NOT NULL,
         weekly_hours REAL NOT NULL,
         daily_soll TEXT NOT NULL, -- JSON String
+        language TEXT DEFAULT 'de',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
       )
     `);
+
+    // Check if migration is needed for existing database
+    db.all("PRAGMA table_info(users)", (err, columns) => {
+      if (err) {
+        console.error('Error checking table info for users:', err.message);
+        return;
+      }
+      const hasLanguage = columns.some(col => col.name === 'language');
+      if (!hasLanguage) {
+        db.run("ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'de'", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding language column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added language column.');
+          }
+        });
+      }
+    });
 
     // 2. Punches Table (Work sessions)
     await dbRun(`
@@ -117,18 +136,19 @@ app.post('/api/sync', async (req, res) => {
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
               weekly_hours = excluded.weekly_hours,
               daily_soll = excluded.daily_soll,
+              language = excluded.language,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
             WHERE excluded.updated_at > users.updated_at
-          `, [user.id, user.name, user.pin, user.weekly_hours, JSON.stringify(user.daily_soll), user.created_at, user.updated_at, user.deleted ? 1 : 0]);
+          `, [user.id, user.name, user.pin, user.weekly_hours, JSON.stringify(user.daily_soll), user.language || 'de', user.created_at, user.updated_at, user.deleted ? 1 : 0]);
         }
       }
 

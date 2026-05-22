@@ -286,6 +286,7 @@ body {
 
 /* Lock Screen & PIN-Pad */
 .lock-card {
+  position: relative;
   padding: 40px;
   width: 100%;
   max-width: 400px;
@@ -1187,4 +1188,44 @@ body {
     min-width: 0;
   }
 }
+
+/* Lock Screen Language Switcher styling */
+.lock-lang-switcher {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  z-index: 10;
+}
+
+.btn-lock-lang {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn-lock-lang:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-lock-lang.active {
+  color: var(--color-accent);
+  font-weight: 700;
+  background: rgba(0, 242, 254, 0.1);
+}
+
+.lang-divider {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.8rem;
+}
+
 
