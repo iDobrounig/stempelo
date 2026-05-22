@@ -1870,13 +1870,18 @@ navItems.forEach(item => {
 // ----------------------------------------------------
 // 7.5 Background Sync Functions
 // ----------------------------------------------------
+let isSyncing = false;
+
 /**
  * Run synchronization silently in the background
  */
 async function triggerSilentSync() {
+  if (isSyncing) return;
+  
   const serverUrl = SyncService.getServerUrl();
   if (!serverUrl) return;
 
+  isSyncing = true;
   try {
     const res = await SyncService.sync(dbAdapter);
     console.log(`Silent background sync success: ${res.appliedCount} updates imported.`);
@@ -1892,6 +1897,8 @@ async function triggerSilentSync() {
     }
   } catch (error) {
     console.warn('Silent background sync failed:', error.message);
+  } finally {
+    isSyncing = false;
   }
 }
 
@@ -1906,6 +1913,19 @@ setInterval(() => {
   console.log('Running periodic background sync...');
   triggerSilentSync();
 }, 5 * 60 * 1000);
+
+// Sync when app comes to foreground (e.g., opened from Home Screen or tab switched)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    console.log('App became visible. Running background sync...');
+    triggerSilentSync();
+  }
+});
+
+window.addEventListener('focus', () => {
+  console.log('Window gained focus. Running background sync...');
+  triggerSilentSync();
+});
 
 // ----------------------------------------------------
 // 8. Initialization & Service Worker
