@@ -328,6 +328,16 @@ body {
   gap: 10px;
 }
 
+.lock-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.lock-actions .btn {
+  flex: 1;
+}
+
 .pin-area {
   display: flex;
   flex-direction: column;

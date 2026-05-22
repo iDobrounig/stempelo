@@ -1608,10 +1608,45 @@ document.getElementById('btn-cancel-create-user').onclick = () => document.getEl
 document.getElementById('btn-cancel-manual-punch').onclick = () => document.getElementById('dlg-manual-punch').close();
 document.getElementById('btn-cancel-timeoff').onclick = () => document.getElementById('dlg-timeoff').close();
 document.getElementById('btn-close-backup').onclick = () => document.getElementById('dlg-backup').close();
+document.getElementById('btn-close-server-settings').onclick = () => document.getElementById('dlg-server-settings').close();
+
 document.getElementById('btn-show-create-user').onclick = () => {
   document.getElementById('new-user-name').value = '';
   document.getElementById('new-user-pin').value = '';
   document.getElementById('dlg-create-user').showModal();
+};
+
+document.getElementById('btn-show-server-settings').onclick = () => {
+  document.getElementById('lock-sync-server-url').value = SyncService.getServerUrl();
+  document.getElementById('dlg-server-settings').showModal();
+};
+
+document.getElementById('btn-save-server-settings').onclick = async () => {
+  const saveBtn = document.getElementById('btn-save-server-settings');
+  const serverUrl = document.getElementById('lock-sync-server-url').value.trim();
+  
+  if (!serverUrl) {
+    alert('Bitte gib eine gültige Server-URL ein.');
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Verbinde...';
+
+  SyncService.setServerUrl(serverUrl);
+
+  try {
+    const res = await SyncService.sync(dbAdapter);
+    await populateUserSelect();
+    alert(`Verbindung erfolgreich! ${res.appliedCount} Änderungen synchronisiert.`);
+    document.getElementById('dlg-server-settings').close();
+  } catch (error) {
+    console.error(error);
+    alert(`Fehler beim Verbinden: ${error.message}`);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Speichern & Abgleichen';
+  }
 };
 
 // Periodic Selection update reports
@@ -1746,6 +1781,13 @@ async function triggerSilentSync() {
   try {
     const res = await SyncService.sync(dbAdapter);
     console.log(`Silent background sync success: ${res.appliedCount} updates imported.`);
+    
+    // Repopulate user select if lock screen is active and we're not actively typing
+    const lockScreen = document.getElementById('lock-screen');
+    if (lockScreen && lockScreen.classList.contains('active') && currentPinInput === '') {
+      await populateUserSelect();
+    }
+
     if (currentUser && currentTab === 'tab-settings') {
       updateSettingsTab();
     }

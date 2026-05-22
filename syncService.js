@@ -6,7 +6,13 @@ export const SyncService = {
    * Get server URL from localStorage or default to current host
    */
   getServerUrl() {
-    return localStorage.getItem('sync-server-url') || '';
+    let savedUrl = localStorage.getItem('sync-server-url');
+    if (!savedUrl && typeof window !== 'undefined' && window.location) {
+      if (window.location.origin && window.location.protocol.startsWith('http')) {
+        savedUrl = window.location.origin;
+      }
+    }
+    return savedUrl || '';
   },
 
   /**
