@@ -717,7 +717,6 @@ async function updateHistoryTab() {
   const filterEndDateVal = document.getElementById('filter-end-date').value;
   const filterType = document.getElementById('filter-type').value;
   const filterManualOnly = document.getElementById('filter-manual-only').checked;
-  const filterAutobreakOnly = document.getElementById('filter-autobreak-only').checked;
 
   let filterStart = null;
   let filterEnd = null;
@@ -802,11 +801,6 @@ async function updateHistoryTab() {
     if (filterManualOnly) {
       const hasManual = dateData.punches.some(p => p.manual_edit === 1 || p.manual_edit === true);
       if (!hasManual) return;
-    }
-
-    // 4. Automatic Break Filter
-    if (filterAutobreakOnly) {
-      if (stats.autoBreakMinutes <= 0) return;
     }
 
     // Accumulate sums
@@ -976,7 +970,6 @@ async function exportHistoryToCSV() {
   const filterEndDateVal = document.getElementById('filter-end-date').value;
   const filterType = document.getElementById('filter-type').value;
   const filterManualOnly = document.getElementById('filter-manual-only').checked;
-  const filterAutobreakOnly = document.getElementById('filter-autobreak-only').checked;
 
   let filterStart = null;
   let filterEnd = null;
@@ -1071,10 +1064,6 @@ async function exportHistoryToCSV() {
     if (filterManualOnly) {
       const hasManual = dateData.punches.some(p => p.manual_edit === 1 || p.manual_edit === true);
       if (!hasManual) return;
-    }
-
-    if (filterAutobreakOnly) {
-      if (stats.autoBreakMinutes <= 0) return;
     }
 
     // Accumulate sums
@@ -2187,7 +2176,6 @@ document.getElementById('filter-start-date').onchange = () => updateHistoryTab()
 document.getElementById('filter-end-date').onchange = () => updateHistoryTab();
 document.getElementById('filter-type').onchange = () => updateHistoryTab();
 document.getElementById('filter-manual-only').onchange = () => updateHistoryTab();
-document.getElementById('filter-autobreak-only').onchange = () => updateHistoryTab();
 document.getElementById('btn-export-csv').onclick = () => exportHistoryToCSV();
 
 
