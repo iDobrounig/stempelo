@@ -1930,14 +1930,30 @@ window.addEventListener('focus', () => {
 // ----------------------------------------------------
 // 8. Initialization & Service Worker
 // ----------------------------------------------------
-window.addEventListener('DOMContentLoaded', async () => {
-  // Initialize Database
-  try {
-    await dbAdapter.open();
-    console.log('IndexedDB opened successfully.');
-  } catch (e) {
-    console.error('Failed to open database:', e);
-    alert('Datenbankfehler beim Starten: ' + (e.message || e.name || e));
+async function initApp() {
+  // Initialize Database with automatic retries for cold start on WebKit
+  let dbSuccess = false;
+  let dbError = null;
+  
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      console.log(`Database open attempt ${attempt}...`);
+      await dbAdapter.open();
+      console.log('IndexedDB opened successfully.');
+      dbSuccess = true;
+      break;
+    } catch (e) {
+      dbError = e;
+      console.warn(`Database open attempt ${attempt} failed:`, e.message || e);
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+    }
+  }
+
+  if (!dbSuccess && dbError) {
+    console.error('Failed to open database after 3 attempts:', dbError);
+    alert('Datenbankfehler beim Starten: ' + (dbError.message || dbError.name || dbError));
   }
 
   // Populate profiles
@@ -1955,4 +1971,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       console.error('Service Worker registration failed:', err);
     }
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
