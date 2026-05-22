@@ -2309,7 +2309,26 @@ async function triggerSilentSync() {
       await populateUserSelect();
     }
 
-    if (currentUser && currentTab === 'tab-settings') {
+    if (currentUser && res.appliedCount > 0) {
+      console.log('Background sync updated data, refreshing current tab:', currentTab);
+      // Fetch latest currentUser object in case it was updated
+      const latestUser = await dbAdapter.get('users', currentUser.id);
+      if (latestUser) {
+        currentUser = latestUser;
+        const userNameEl = document.getElementById('current-user-name');
+        if (userNameEl) userNameEl.textContent = currentUser.name;
+      }
+      
+      if (currentTab === 'tab-punch') {
+        updatePunchTab();
+      } else if (currentTab === 'tab-history') {
+        updateHistoryTab();
+      } else if (currentTab === 'tab-reports') {
+        updateReportsTab();
+      } else if (currentTab === 'tab-settings') {
+        updateSettingsTab();
+      }
+    } else if (currentUser && currentTab === 'tab-settings') {
       updateSettingsTab();
     }
   } catch (error) {
@@ -2437,6 +2456,15 @@ async function initApp() {
       }
 
       await populateUserSelect();
+
+      // Refresh current tab if logged in and changes were applied
+      if (currentUser && res.appliedCount > 0) {
+        if (currentTab === 'tab-punch') updatePunchTab();
+        else if (currentTab === 'tab-history') updateHistoryTab();
+        else if (currentTab === 'tab-reports') updateReportsTab();
+        else if (currentTab === 'tab-settings') updateSettingsTab();
+      }
+
       syncSuccess = true;
       isSyncing = false;
       break;
