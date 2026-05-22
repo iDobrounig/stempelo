@@ -1625,6 +1625,7 @@ function showEditPunchDialog(dateStr, punches) {
     document.getElementById('edit-punch-id').value = '';
     document.getElementById('btn-delete-punch').classList.add('hidden');
     dlg.showModal();
+    document.getElementById('btn-cancel-manual-punch')?.focus({ preventScroll: true });
     return;
   }
 
@@ -1643,6 +1644,7 @@ function showEditPunchDialog(dateStr, punches) {
 
   document.getElementById('btn-delete-punch').classList.remove('hidden');
   dlg.showModal();
+  document.getElementById('btn-cancel-manual-punch')?.focus({ preventScroll: true });
 }
 
 // Create User
@@ -1818,6 +1820,7 @@ document.getElementById('btn-add-manual-punch').onclick = () => {
   document.getElementById('btn-delete-punch').classList.add('hidden');
   updateSinglePunchSummary();
   dlg.showModal();
+  document.getElementById('btn-cancel-manual-punch')?.focus({ preventScroll: true });
 };
 
 document.getElementById('form-manual-punch').onsubmit = async (e) => {
@@ -2032,6 +2035,7 @@ document.getElementById('btn-add-timeoff').onclick = () => {
   const dlg = document.getElementById('dlg-timeoff');
   document.getElementById('timeoff-date').value = Temporal.Now.plainDateISO().toString();
   dlg.showModal();
+  document.getElementById('btn-cancel-timeoff')?.focus({ preventScroll: true });
 };
 
 document.getElementById('form-timeoff').onsubmit = async (e) => {
@@ -2119,11 +2123,13 @@ document.getElementById('btn-show-create-user').onclick = () => {
   document.getElementById('new-user-name').value = '';
   document.getElementById('new-user-pin').value = '';
   document.getElementById('dlg-create-user').showModal();
+  document.getElementById('btn-cancel-create-user')?.focus({ preventScroll: true });
 };
 
 document.getElementById('btn-show-server-settings').onclick = () => {
   document.getElementById('lock-sync-server-url').value = SyncService.getServerUrl();
   document.getElementById('dlg-server-settings').showModal();
+  document.getElementById('btn-close-server-settings')?.focus({ preventScroll: true });
 };
 
 document.getElementById('btn-save-server-settings').onclick = async () => {
@@ -2226,6 +2232,7 @@ document.getElementById('btn-export-backup').onclick = async () => {
 
   document.getElementById('backup-json-text').value = JSON.stringify(backupData, null, 2);
   document.getElementById('dlg-backup').showModal();
+  document.getElementById('btn-close-backup')?.focus({ preventScroll: true });
 };
 
 document.getElementById('btn-import-backup-action').onclick = async () => {
