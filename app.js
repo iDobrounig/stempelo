@@ -19,13 +19,19 @@ let idb = null;
 const dbAdapter = {
   open() {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        idb = request.result;
-        resolve(idb);
-      };
+      if (typeof indexedDB === 'undefined') {
+        reject(new Error('IndexedDB wird in diesem Browser nicht unterstützt oder ist blockiert (z. B. im privaten Modus).'));
+        return;
+      }
+
+      try {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = (event) => reject(event.target?.error || request.error || new Error('Datenbank konnte nicht geöffnet werden.'));
+        request.onsuccess = () => {
+          idb = request.result;
+          resolve(idb);
+        };
       
       request.onupgradeneeded = (event) => {
         const db = request.result;
@@ -56,6 +62,9 @@ const dbAdapter = {
           db.createObjectStore('audit_logs', { keyPath: 'id' });
         }
       };
+      } catch (err) {
+        reject(err);
+      }
     });
   },
 
@@ -1818,6 +1827,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log('IndexedDB opened successfully.');
   } catch (e) {
     console.error('Failed to open database:', e);
+    alert('Datenbankfehler beim Starten: ' + (e.message || e.name || e));
   }
 
   // Populate profiles
