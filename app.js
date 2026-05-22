@@ -1371,56 +1371,275 @@ function lockApp() {
 // 7. Event Handlers & Submissions
 // ----------------------------------------------------
 
+function addPunchRow(startVal = '', endVal = '') {
+  const container = document.getElementById('punches-list-container');
+  const row = document.createElement('div');
+  row.className = 'punch-row';
+  
+  row.innerHTML = `
+    <div class="punch-row-inputs">
+      <input type="time" class="punch-row-start" value="${startVal}" required>
+      <span>bis</span>
+      <input type="time" class="punch-row-end" value="${endVal}">
+    </div>
+    <button type="button" class="btn-remove-punch-row" title="Stempelung löschen">🗑️</button>
+  `;
+  
+  const startInput = row.querySelector('.punch-row-start');
+  const endInput = row.querySelector('.punch-row-end');
+  
+  startInput.oninput = updateEditPunchesSummary;
+  endInput.oninput = updateEditPunchesSummary;
+  
+  row.querySelector('.btn-remove-punch-row').onclick = () => {
+    row.remove();
+    updateEditPunchesSummary();
+  };
+  
+  container.appendChild(row);
+  updateEditPunchesSummary();
+}
+
+function updateEditPunchesSummary() {
+  const summaryEl = document.getElementById('edit-punches-summary');
+  if (!summaryEl) return;
+
+  const rows = document.querySelectorAll('.punch-row');
+  const parsed = [];
+  
+  for (const row of rows) {
+    const startVal = row.querySelector('.punch-row-start').value;
+    const endVal = row.querySelector('.punch-row-end').value;
+    if (startVal) {
+      parsed.push({ startVal, endVal });
+    }
+  }
+
+  if (parsed.length === 0) {
+    summaryEl.innerHTML = '<span style="color: var(--color-text-muted);">Keine Stempelungen eingetragen.</span>';
+    return;
+  }
+
+  // Sort chronologically by start time
+  parsed.sort((a, b) => a.startVal.localeCompare(b.startVal));
+
+  let grossMinutes = 0;
+  let manualBreakMinutes = 0;
+  let hasOverlap = false;
+  let invalidTimeOrder = false;
+
+  for (let i = 0; i < parsed.length; i++) {
+    const current = parsed[i];
+    
+    // Parse start and end as minutes from midnight
+    const startParts = current.startVal.split(':').map(Number);
+    const startMin = startParts[0] * 60 + startParts[1];
+    
+    if (current.endVal) {
+      const endParts = current.endVal.split(':').map(Number);
+      const endMin = endParts[0] * 60 + endParts[1];
+      
+      if (endMin < startMin) {
+        invalidTimeOrder = true;
+      } else {
+        grossMinutes += (endMin - startMin);
+      }
+    } else {
+      // Active punch
+      const dateStr = document.getElementById('manual-date').value;
+      const todayStr = Temporal.Now.plainDateISO().toString();
+      if (dateStr === todayStr) {
+        const nowLocal = new Date();
+        const nowMin = nowLocal.getHours() * 60 + nowLocal.getMinutes();
+        if (nowMin > startMin) {
+          grossMinutes += (nowMin - startMin);
+        }
+      }
+    }
+
+    if (i > 0) {
+      const prev = parsed[i - 1];
+      if (prev.endVal) {
+        const prevEndParts = prev.endVal.split(':').map(Number);
+        const prevEndMin = prevEndParts[0] * 60 + prevEndParts[1];
+        
+        if (startMin < prevEndMin) {
+          hasOverlap = true;
+        } else {
+          manualBreakMinutes += (startMin - prevEndMin);
+        }
+      } else {
+        hasOverlap = true;
+      }
+    }
+  }
+
+  if (invalidTimeOrder) {
+    summaryEl.innerHTML = '<span style="color: #ef4444;">⚠️ Eine Endzeit liegt vor der Startzeit.</span>';
+    return;
+  }
+  if (hasOverlap) {
+    summaryEl.innerHTML = '<span style="color: #ef4444;">⚠️ Arbeitszeiten überlappen oder Reihenfolge ungültig.</span>';
+    return;
+  }
+
+  // Austrian automatic break (AZG § 11)
+  const grossHours = grossMinutes / 60;
+  let autoBreakMinutes = 0;
+  if (grossHours > 6.0 && manualBreakMinutes < 30) {
+    autoBreakMinutes = 30 - manualBreakMinutes;
+  }
+  const totalBreakMinutes = manualBreakMinutes + autoBreakMinutes;
+  const netMinutes = Math.max(0, grossMinutes - autoBreakMinutes);
+
+  const formatMins = (totalMins) => {
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hrs === 0) return `${mins}m`;
+    return `${hrs}h ${mins}m`;
+  };
+
+  let html = `
+    <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;">
+      <span style="color: var(--color-text-muted);">Arbeitszeit (brutto):</span>
+      <strong>${formatMins(grossMinutes)}</strong>
+      <span style="color: var(--color-text-muted);">Pause gestempelt:</span>
+      <strong>${manualBreakMinutes} Min.</strong>
+  `;
+
+  if (autoBreakMinutes > 0) {
+    html += `
+      <span style="color: var(--color-text-muted);">Gesetzl. Pausenabzug:</span>
+      <strong class="text-warning">+${autoBreakMinutes} Min. (AZG § 11)</strong>
+    `;
+  }
+
+  html += `
+      <span style="color: var(--color-text-muted);">Pause gesamt:</span>
+      <strong>${totalBreakMinutes} Min.</strong>
+      <span style="color: var(--color-text-muted); border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; margin-top: 4px;">Netto-Arbeitszeit:</span>
+      <strong class="text-success" style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; margin-top: 4px;">${formatMins(netMinutes)}</strong>
+    </div>
+  `;
+
+  summaryEl.innerHTML = html;
+}
+
+
+function updateSinglePunchSummary() {
+  const summaryEl = document.getElementById('single-punch-summary');
+  if (!summaryEl) return;
+
+  const startVal = document.getElementById('manual-start-time').value;
+  const endVal = document.getElementById('manual-end-time').value;
+  const breakMinutes = parseInt(document.getElementById('manual-break').value) || 0;
+
+  if (!startVal || !endVal) {
+    summaryEl.innerHTML = '<span style="color: var(--color-text-muted);">Bitte Kommen- und Gehen-Zeiten eingeben.</span>';
+    summaryEl.style.display = 'block';
+    return;
+  }
+
+  // Parse start and end as minutes from midnight
+  const startParts = startVal.split(':').map(Number);
+  const startMin = startParts[0] * 60 + startParts[1];
+  const endParts = endVal.split(':').map(Number);
+  const endMin = endParts[0] * 60 + endParts[1];
+
+  if (endMin < startMin) {
+    summaryEl.innerHTML = '<span style="color: #ef4444;">⚠️ Die Endzeit liegt vor der Startzeit.</span>';
+    summaryEl.style.display = 'block';
+    return;
+  }
+
+  const durationMinutes = endMin - startMin;
+  if (breakMinutes > durationMinutes) {
+    summaryEl.innerHTML = '<span style="color: #ef4444;">⚠️ Die Pause ist länger als die Arbeitszeit.</span>';
+    summaryEl.style.display = 'block';
+    return;
+  }
+
+  const grossWorkMinutes = durationMinutes - breakMinutes;
+  const grossWorkHours = grossWorkMinutes / 60;
+
+  // Austrian automatic break (AZG § 11)
+  let autoBreakMinutes = 0;
+  if (grossWorkHours > 6.0 && breakMinutes < 30) {
+    autoBreakMinutes = 30 - breakMinutes;
+  }
+  const totalBreakMinutes = breakMinutes + autoBreakMinutes;
+  const netMinutes = Math.max(0, durationMinutes - totalBreakMinutes);
+
+  const formatMins = (totalMins) => {
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (hrs === 0) return `${mins}m`;
+    return `${hrs}h ${mins}m`;
+  };
+
+  let html = `
+    <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;">
+      <span style="color: var(--color-text-muted);">Arbeitszeit (brutto):</span>
+      <strong>${formatMins(durationMinutes)}</strong>
+      <span style="color: var(--color-text-muted);">Pause gestempelt:</span>
+      <strong>${breakMinutes} Min.</strong>
+  `;
+
+  if (autoBreakMinutes > 0) {
+    html += `
+      <span style="color: var(--color-text-muted);">Gesetzl. Pausenabzug:</span>
+      <strong class="text-warning">+${autoBreakMinutes} Min. (AZG § 11)</strong>
+    `;
+  }
+
+  html += `
+      <span style="color: var(--color-text-muted);">Pause gesamt:</span>
+      <strong>${totalBreakMinutes} Min.</strong>
+      <span style="color: var(--color-text-muted); border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; margin-top: 4px;">Netto-Arbeitszeit:</span>
+      <strong class="text-success" style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 4px; margin-top: 4px;">${formatMins(netMinutes)}</strong>
+    </div>
+  `;
+
+  summaryEl.innerHTML = html;
+  summaryEl.style.display = 'block';
+}
+
+
 function showEditPunchDialog(dateStr, punches) {
   const dlg = document.getElementById('dlg-manual-punch');
   document.getElementById('manual-punch-title').textContent = `Arbeitszeit bearbeiten (${dateStr})`;
   document.getElementById('manual-date').value = dateStr;
   
+  // Hide single punch fields and show multi-punch list
+  document.getElementById('single-punch-fields').style.display = 'none';
+  document.getElementById('multi-punch-fields').style.display = 'block';
+  document.getElementById('manual-start-time').required = false;
+  document.getElementById('manual-end-time').required = false;
+  document.getElementById('manual-break').required = false;
+
+  // Clear punches list container
+  const container = document.getElementById('punches-list-container');
+  container.innerHTML = '';
+
   if (!punches || punches.length === 0) {
     document.getElementById('edit-punch-id').value = '';
-    document.getElementById('manual-start-time').value = '';
-    document.getElementById('manual-end-time').value = '';
-    document.getElementById('manual-break').value = 0;
     document.getElementById('btn-delete-punch').classList.add('hidden');
     dlg.showModal();
     return;
   }
 
-  // Sort punches chronologically to determine overall start, end and breaks
+  // Sort punches chronologically
   const sortedPunches = [...punches].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
   
-  const firstPunch = sortedPunches[0];
-  const lastPunch = sortedPunches[sortedPunches.length - 1];
+  // Set ID to first punch ID to indicate we are editing
+  document.getElementById('edit-punch-id').value = sortedPunches[0].id;
   
-  document.getElementById('edit-punch-id').value = firstPunch.id;
-  
-  const startLocal = new Date(firstPunch.start_time);
-  document.getElementById('manual-start-time').value = startLocal.toTimeString().slice(0, 5);
-  
-  if (lastPunch.end_time) {
-    const endLocal = new Date(lastPunch.end_time);
-    document.getElementById('manual-end-time').value = endLocal.toTimeString().slice(0, 5);
-  } else {
-    document.getElementById('manual-end-time').value = '';
-  }
-
-  // Calculate gaps between sorted punches using Temporal for consistency with calculations
-  let totalManualBreakMinutes = 0;
-  for (let i = 1; i < sortedPunches.length; i++) {
-    if (sortedPunches[i - 1].end_time && sortedPunches[i].start_time) {
-      try {
-        const prevEnd = Temporal.Instant.from(sortedPunches[i - 1].end_time);
-        const currStart = Temporal.Instant.from(sortedPunches[i].start_time);
-        const gap = prevEnd.until(currStart, { largestUnit: 'minute' });
-        if (gap.minutes > 0) {
-          totalManualBreakMinutes += gap.minutes;
-        }
-      } catch (err) {
-        console.warn('Failed to calculate gap with Temporal in edit dialog:', err);
-      }
-    }
-  }
-  document.getElementById('manual-break').value = totalManualBreakMinutes;
+  // Add rows for existing punches
+  sortedPunches.forEach(p => {
+    const startT = new Date(p.start_time).toTimeString().slice(0, 5);
+    const endT = p.end_time ? new Date(p.end_time).toTimeString().slice(0, 5) : '';
+    addPunchRow(startT, endT);
+  });
 
   document.getElementById('btn-delete-punch').classList.remove('hidden');
   dlg.showModal();
@@ -1585,10 +1804,19 @@ document.getElementById('btn-add-manual-punch').onclick = () => {
   document.getElementById('manual-punch-title').textContent = 'Arbeitszeit manuell eintragen';
   document.getElementById('edit-punch-id').value = '';
   document.getElementById('manual-date').value = Temporal.Now.plainDateISO().toString();
+  
+  // Set required attributes and show single punch fields
+  document.getElementById('single-punch-fields').style.display = 'block';
+  document.getElementById('multi-punch-fields').style.display = 'none';
+  document.getElementById('manual-start-time').required = true;
+  document.getElementById('manual-end-time').required = true;
+  document.getElementById('manual-break').required = true;
+  
   document.getElementById('manual-start-time').value = '08:00';
   document.getElementById('manual-end-time').value = '16:00';
   document.getElementById('manual-break').value = '30';
   document.getElementById('btn-delete-punch').classList.add('hidden');
+  updateSinglePunchSummary();
   dlg.showModal();
 };
 
@@ -1598,86 +1826,140 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
 
   const id = document.getElementById('edit-punch-id').value;
   const dateStr = document.getElementById('manual-date').value;
-  const startStr = document.getElementById('manual-start-time').value;
-  const endStr = document.getElementById('manual-end-time').value;
-  const breakMinutes = parseInt(document.getElementById('manual-break').value) || 0;
-
-  // Build timestamps
-  const startIso = new Date(`${dateStr}T${startStr}:00`).toISOString();
-  const endIso = new Date(`${dateStr}T${endStr}:00`).toISOString();
 
   // Load existing punches for this user on this day
   const allPunches = await dbAdapter.getAll('punches');
   const userPunches = allPunches.filter(p => p.user_id === currentUser.id && p.start_time.startsWith(dateStr));
+  const oldPunches = [...userPunches];
 
-  // Determine if it is editing or creating
   if (id) {
-    // Editing: Delete old punches for this day, create new ones reflecting manual edits
-    const oldPunches = [...userPunches];
+    // Editing: Read all punch rows
+    const rows = document.querySelectorAll('.punch-row');
+    const parsedRows = [];
     
-    // soft delete all old punches for this day
-    for (const p of oldPunches) {
-      await dbAdapter.delete('punches', p.id);
-    }
-
-    // Insert new punch reflecting the manual entry
-    if (breakMinutes > 0) {
-      // Split into two punches if there is a manual break
-      const startMs = new Date(startIso).getTime();
-      const endMs = new Date(endIso).getTime();
-      const midPoint = startMs + ((endMs - startMs) / 2);
-
-      // Punch 1
-      const p1End = new Date(midPoint - (breakMinutes * 30000)).toISOString();
-      const p1 = {
-        id: crypto.randomUUID(),
-        user_id: currentUser.id,
-        start_time: startIso,
-        end_time: p1End,
-        manual_edit: 1,
-        created_at: new Date().toISOString(),
-        deleted: 0
-      };
-      await dbAdapter.put('punches', p1);
-
-      // Punch 2
-      const p2Start = new Date(midPoint + (breakMinutes * 30000)).toISOString();
-      const p2 = {
-        id: crypto.randomUUID(),
-        user_id: currentUser.id,
-        start_time: p2Start,
-        end_time: endIso,
-        manual_edit: 1,
-        created_at: new Date().toISOString(),
-        deleted: 0
-      };
-      await dbAdapter.put('punches', p2);
+    for (const row of rows) {
+      const startVal = row.querySelector('.punch-row-start').value;
+      const endVal = row.querySelector('.punch-row-end').value;
+      if (!startVal) continue;
       
-      await dbAdapter.logAudit(currentUser.id, 'update', 'punches', dateStr, oldPunches, [p1, p2]);
-    } else {
-      // Single punch
-      const p = {
-        id: crypto.randomUUID(),
-        user_id: currentUser.id,
-        start_time: startIso,
-        end_time: endIso,
-        manual_edit: 1,
-        created_at: new Date().toISOString(),
-        deleted: 0
-      };
-      await dbAdapter.put('punches', p);
-      await dbAdapter.logAudit(currentUser.id, 'update', 'punches', dateStr, oldPunches, p);
+      parsedRows.push({ startVal, endVal });
     }
+    
+    // Sort rows chronologically by start time
+    parsedRows.sort((a, b) => a.startVal.localeCompare(b.startVal));
+
+    if (parsedRows.length === 0) {
+      if (confirm('Du hast alle Stempelungen entfernt. Möchtest du die Arbeitszeiten für diesen Tag löschen?')) {
+        for (const p of oldPunches) {
+          await dbAdapter.delete('punches', p.id, currentUser.id);
+        }
+        document.getElementById('dlg-manual-punch').close();
+        updateHistoryTab();
+        triggerSilentSync();
+      }
+      return;
+    }
+    
+    // Validation
+    let hasError = false;
+    let activeCount = 0;
+    
+    for (let i = 0; i < parsedRows.length; i++) {
+      const current = parsedRows[i];
+      
+      // 1. Check end time after start time
+      if (current.endVal && current.endVal <= current.startVal) {
+        alert(`Ungültige Stempelung: Die Endzeit (${current.endVal}) muss nach der Startzeit (${current.startVal}) liegen.`);
+        hasError = true;
+        break;
+      }
+      
+      // 2. Count active punches
+      if (!current.endVal) {
+        activeCount++;
+        // Active punch must be the last one
+        if (i !== parsedRows.length - 1) {
+          alert('Eine Stempelung ohne Endzeit (aktiv) kann nur die letzte Stempelung des Tages sein.');
+          hasError = true;
+          break;
+        }
+      }
+      
+      // 3. Check overlap with previous punch
+      if (i > 0) {
+        const prev = parsedRows[i - 1];
+        if (!prev.endVal) {
+          alert('Die vorherige Stempelung ist noch aktiv und hat keine Endzeit. Ein neuer Zeitraum kann erst nach einer Endzeit starten.');
+          hasError = true;
+          break;
+        }
+        if (current.startVal < prev.endVal) {
+          alert(`Überlappende Arbeitszeiten: Die Stempelung von ${current.startVal} bis ${current.endVal || 'aktiv'} überlappt mit der vorherigen Stempelung (endet um ${prev.endVal}).`);
+          hasError = true;
+          break;
+        }
+      }
+    }
+    
+    if (activeCount > 1) {
+      alert('Es kann maximal eine aktive Stempelung (ohne Endzeit) geben.');
+      hasError = true;
+    }
+    
+    if (hasError) return;
+
+    // Convert local times to UTC ISO strings using Temporal for timezone correctness
+    const tz = Temporal.Now.timeZoneId();
+    const newPunches = [];
+    
+    for (const item of parsedRows) {
+      try {
+        const startIso = Temporal.PlainDateTime.from(`${dateStr}T${item.startVal}:00`).toZonedDateTime(tz).toInstant().toString();
+        const endIso = item.endVal ? Temporal.PlainDateTime.from(`${dateStr}T${item.endVal}:00`).toZonedDateTime(tz).toInstant().toString() : null;
+        
+        newPunches.push({
+          id: crypto.randomUUID(),
+          user_id: currentUser.id,
+          start_time: startIso,
+          end_time: endIso,
+          manual_edit: 1,
+          created_at: new Date().toISOString(),
+          deleted: 0
+        });
+      } catch (err) {
+        console.error('Failed to parse date/time with Temporal:', err);
+        alert('Fehler beim Konvertieren der Zeiten. Bitte prüfe deine Eingaben.');
+        return;
+      }
+    }
+
+    // Soft delete all old punches
+    for (const p of oldPunches) {
+      await dbAdapter.delete('punches', p.id, currentUser.id);
+    }
+
+    // Insert new punches
+    for (const p of newPunches) {
+      await dbAdapter.put('punches', p);
+    }
+    
+    await dbAdapter.logAudit(currentUser.id, 'update', 'punches', dateStr, oldPunches, newPunches);
   } else {
     // Creating manual entry
+    const startStr = document.getElementById('manual-start-time').value;
+    const endStr = document.getElementById('manual-end-time').value;
+    const breakMinutes = parseInt(document.getElementById('manual-break').value) || 0;
+
+    const startIso = new Date(`${dateStr}T${startStr}:00`).toISOString();
+    const endIso = endStr ? new Date(`${dateStr}T${endStr}:00`).toISOString() : null;
+
     let createdPunches = [];
-    if (breakMinutes > 0) {
+    if (breakMinutes > 0 && endIso) {
       // Split into two punches to reflect gap
       const startMs = new Date(startIso).getTime();
       const endMs = new Date(endIso).getTime();
       const midPoint = startMs + ((endMs - startMs) / 2);
 
-      // Punch 1
       const p1End = new Date(midPoint - (breakMinutes * 30000)).toISOString();
       const p1 = {
         id: crypto.randomUUID(),
@@ -1691,7 +1973,6 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
       await dbAdapter.put('punches', p1);
       createdPunches.push(p1);
 
-      // Punch 2
       const p2Start = new Date(midPoint + (breakMinutes * 30000)).toISOString();
       const p2 = {
         id: crypto.randomUUID(),
@@ -1704,6 +1985,8 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
       };
       await dbAdapter.put('punches', p2);
       createdPunches.push(p2);
+
+      await dbAdapter.logAudit(currentUser.id, 'insert', 'punches', dateStr, null, createdPunches);
     } else {
       const p = {
         id: crypto.randomUUID(),
@@ -1716,9 +1999,9 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
       };
       await dbAdapter.put('punches', p);
       createdPunches.push(p);
-    }
 
-    await dbAdapter.logAudit(currentUser.id, 'insert', 'punches', dateStr, null, createdPunches);
+      await dbAdapter.logAudit(currentUser.id, 'insert', 'punches', dateStr, null, createdPunches);
+    }
   }
 
   document.getElementById('dlg-manual-punch').close();
@@ -1823,6 +2106,14 @@ document.getElementById('btn-cancel-manual-punch').onclick = () => document.getE
 document.getElementById('btn-cancel-timeoff').onclick = () => document.getElementById('dlg-timeoff').close();
 document.getElementById('btn-close-backup').onclick = () => document.getElementById('dlg-backup').close();
 document.getElementById('btn-close-server-settings').onclick = () => document.getElementById('dlg-server-settings').close();
+
+// Wire up multi-punch row add button
+document.getElementById('btn-add-punch-row').onclick = () => addPunchRow();
+
+// Wire up single-punch fields real-time calculations
+document.getElementById('manual-start-time').oninput = updateSinglePunchSummary;
+document.getElementById('manual-end-time').oninput = updateSinglePunchSummary;
+document.getElementById('manual-break').oninput = updateSinglePunchSummary;
 
 document.getElementById('btn-show-create-user').onclick = () => {
   document.getElementById('new-user-name').value = '';

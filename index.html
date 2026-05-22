@@ -435,22 +435,45 @@
         <label for="manual-date">Datum</label>
         <input type="date" id="manual-date" required>
       </div>
-      <div class="form-group-row">
-        <div class="form-group">
-          <label for="manual-start-time">Kommen (Beginn)</label>
-          <input type="time" id="manual-start-time" required>
+
+      <!-- Single punch entry fields (shown when adding new manual entry) -->
+      <div id="single-punch-fields">
+        <div class="form-group-row">
+          <div class="form-group">
+            <label for="manual-start-time">Kommen (Beginn)</label>
+            <input type="time" id="manual-start-time">
+          </div>
+          <div class="form-group">
+            <label for="manual-end-time">Gehen (Ende)</label>
+            <input type="time" id="manual-end-time">
+          </div>
         </div>
-        <div class="form-group">
-          <label for="manual-end-time">Gehen (Ende)</label>
-          <input type="time" id="manual-end-time" required>
+        <div class="form-group" style="margin-top: 10px;">
+          <label for="manual-break">Gestempelte Pause (in Minuten)</label>
+          <input type="number" id="manual-break" min="0" max="1440" value="0">
         </div>
-      </div>
-      <div class="form-group">
-        <label for="manual-break">Gestempelte Pause (in Minuten)</label>
-        <input type="number" id="manual-break" min="0" max="1440" value="0" required>
+        <div id="single-punch-summary" style="margin-top: 12px; font-size: 0.85rem; padding: 10px 12px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-card-border); line-height: 1.4; display: none;">
+          <!-- Dynamically populated summaries like: Arbeitszeit: X Std. | Pause: Y Min. -->
+        </div>
       </div>
 
-      <div class="dialog-actions">
+      <!-- Multi-punch edit fields (shown when editing existing day) -->
+      <div id="multi-punch-fields" style="display: none; margin-top: 10px;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 8px; display: block;">
+          Einzelne Stempelungen bearbeiten
+        </label>
+        <div id="punches-list-container">
+          <!-- Dynamic punch rows will be rendered here -->
+        </div>
+        <button type="button" class="btn secondary small" id="btn-add-punch-row" style="margin-top: 10px; width: 100%;">
+          + Stempelung hinzufügen
+        </button>
+        <div id="edit-punches-summary" style="margin-top: 12px; font-size: 0.85rem; padding: 10px 12px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-card-border); line-height: 1.4;">
+          <!-- Dynamically populated summaries like: Arbeitszeit: X Std. | Pause: Y Min. -->
+        </div>
+      </div>
+
+      <div class="dialog-actions" style="margin-top: 20px;">
         <button type="button" class="btn secondary" id="btn-cancel-manual-punch">Abbrechen</button>
         <button type="button" class="btn danger hidden" id="btn-delete-punch">Eintrag löschen</button>
         <button type="submit" class="btn primary">Speichern</button>
