@@ -1090,6 +1090,8 @@ body {
   padding: 8px 12px;
   border-radius: 12px;
   border: 1px solid var(--color-card-border);
+  min-width: 0;
+  width: 100%;
 }
 
 .punch-row-inputs {
@@ -1098,6 +1100,7 @@ body {
   align-items: center;
   gap: 8px;
   flex-grow: 1;
+  min-width: 0;
 }
 
 .punch-row-inputs span {
@@ -1111,6 +1114,9 @@ body {
   padding: 8px 12px;
   border-radius: 8px;
   font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0; /* Allow shrinking in WebKit/Safari */
 }
 
 .btn-remove-punch-row {
@@ -1125,10 +1131,45 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0; /* Do not shrink on small screens */
 }
 
 .btn-remove-punch-row:hover {
   background-color: rgba(239, 68, 68, 0.15);
   color: #ef4444;
+}
+
+/* Mobile Responsiveness for Modals & Edit Views */
+@media (max-width: 480px) {
+  .glass-dialog form {
+    padding: 16px;
+    gap: 16px;
+  }
+  
+  .dialog-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .dialog-actions .btn {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .punch-row {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .punch-row-inputs {
+    gap: 4px;
+  }
+
+  .punch-row-inputs input[type="time"] {
+    padding: 8px 4px;
+    font-size: 0.85rem;
+  }
 }
 
