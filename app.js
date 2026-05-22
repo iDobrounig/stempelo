@@ -1371,32 +1371,54 @@ function lockApp() {
 // 7. Event Handlers & Submissions
 // ----------------------------------------------------
 
-// Modals display helpers
 function showEditPunchDialog(dateStr, punches) {
   const dlg = document.getElementById('dlg-manual-punch');
   document.getElementById('manual-punch-title').textContent = `Arbeitszeit bearbeiten (${dateStr})`;
   document.getElementById('manual-date').value = dateStr;
   
-  // Set times from the first punch
-  const firstPunch = punches[0];
+  if (!punches || punches.length === 0) {
+    document.getElementById('edit-punch-id').value = '';
+    document.getElementById('manual-start-time').value = '';
+    document.getElementById('manual-end-time').value = '';
+    document.getElementById('manual-break').value = 0;
+    document.getElementById('btn-delete-punch').classList.add('hidden');
+    dlg.showModal();
+    return;
+  }
+
+  // Sort punches chronologically to determine overall start, end and breaks
+  const sortedPunches = [...punches].sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+  
+  const firstPunch = sortedPunches[0];
+  const lastPunch = sortedPunches[sortedPunches.length - 1];
+  
   document.getElementById('edit-punch-id').value = firstPunch.id;
   
   const startLocal = new Date(firstPunch.start_time);
   document.getElementById('manual-start-time').value = startLocal.toTimeString().slice(0, 5);
   
-  if (firstPunch.end_time) {
-    const endLocal = new Date(firstPunch.end_time);
+  if (lastPunch.end_time) {
+    const endLocal = new Date(lastPunch.end_time);
     document.getElementById('manual-end-time').value = endLocal.toTimeString().slice(0, 5);
   } else {
     document.getElementById('manual-end-time').value = '';
   }
 
-  // Gaps calculate total manual breaks
+  // Calculate gaps between sorted punches using Temporal for consistency with calculations
   let totalManualBreakMinutes = 0;
-  for (let i = 1; i < punches.length; i++) {
-    const prevEnd = new Date(punches[i - 1].end_time);
-    const currStart = new Date(punches[i].start_time);
-    totalManualBreakMinutes += Math.round((currStart - prevEnd) / 60000);
+  for (let i = 1; i < sortedPunches.length; i++) {
+    if (sortedPunches[i - 1].end_time && sortedPunches[i].start_time) {
+      try {
+        const prevEnd = Temporal.Instant.from(sortedPunches[i - 1].end_time);
+        const currStart = Temporal.Instant.from(sortedPunches[i].start_time);
+        const gap = prevEnd.until(currStart, { largestUnit: 'minute' });
+        if (gap.minutes > 0) {
+          totalManualBreakMinutes += gap.minutes;
+        }
+      } catch (err) {
+        console.warn('Failed to calculate gap with Temporal in edit dialog:', err);
+      }
+    }
   }
   document.getElementById('manual-break').value = totalManualBreakMinutes;
 
