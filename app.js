@@ -417,7 +417,7 @@ function applyGlobalLanguage(lang) {
     if (currentTab === 'tab-punch') updatePunchTab();
     else if (currentTab === 'tab-history') updateHistoryTab();
     else if (currentTab === 'tab-reports') updateReportsTab();
-    else if (currentTab === 'tab-settings') updateSettingsTab();
+    else if (currentTab === 'tab-settings') updateSettingsTab(true);
   }
 }
 
@@ -1344,31 +1344,40 @@ async function updateReportsTab() {
 /**
  * Load user settings fields
  */
-function updateSettingsTab() {
+function updateSettingsTab(onlyTranslateDynamic = false) {
   if (!currentUser) return;
 
-  document.getElementById('set-user-name').value = currentUser.name;
-  document.getElementById('set-user-pin').value = ''; // Don't expose pin
+  if (!onlyTranslateDynamic) {
+    document.getElementById('set-user-name').value = currentUser.name;
+    document.getElementById('set-user-pin').value = ''; // Don't expose pin
 
-  document.getElementById('soll-mon').value = currentUser.daily_soll.mon || 0;
-  document.getElementById('soll-tue').value = currentUser.daily_soll.tue || 0;
-  document.getElementById('soll-wed').value = currentUser.daily_soll.wed || 0;
-  document.getElementById('soll-thu').value = currentUser.daily_soll.thu || 0;
-  document.getElementById('soll-fri').value = currentUser.daily_soll.fri || 0;
-  document.getElementById('soll-sat').value = currentUser.daily_soll.sat || 0;
-  document.getElementById('soll-sun').value = currentUser.daily_soll.sun || 0;
+    document.getElementById('soll-mon').value = currentUser.daily_soll.mon || 0;
+    document.getElementById('soll-tue').value = currentUser.daily_soll.tue || 0;
+    document.getElementById('soll-wed').value = currentUser.daily_soll.wed || 0;
+    document.getElementById('soll-thu').value = currentUser.daily_soll.thu || 0;
+    document.getElementById('soll-fri').value = currentUser.daily_soll.fri || 0;
+    document.getElementById('soll-sat').value = currentUser.daily_soll.sat || 0;
+    document.getElementById('soll-sun').value = currentUser.daily_soll.sun || 0;
 
-  document.getElementById('set-user-lang').value = currentUser.language || 'de';
+    document.getElementById('set-user-lang').value = currentUser.language || 'de';
+
+    const serverUrl = SyncService.getServerUrl();
+    document.getElementById('sync-server-url').value = serverUrl;
+  }
 
   // Sync Info
   const serverUrl = SyncService.getServerUrl();
-  document.getElementById('sync-server-url').value = serverUrl;
-  
   const lastSync = SyncService.getLastSyncTime();
-  document.getElementById('sync-last-time').textContent = lastSync 
-    ? new Date(lastSync).toLocaleString(getLanguage()) 
-    : t('settings-sync-never');
-  document.getElementById('sync-status-text').textContent = serverUrl ? t('settings-sync-status-connected') : t('settings-sync-status-disconnected');
+  const lastSyncTimeEl = document.getElementById('sync-last-time');
+  if (lastSyncTimeEl) {
+    lastSyncTimeEl.textContent = lastSync 
+      ? new Date(lastSync).toLocaleString(getLanguage()) 
+      : t('settings-sync-never');
+  }
+  const syncStatusTextEl = document.getElementById('sync-status-text');
+  if (syncStatusTextEl) {
+    syncStatusTextEl.textContent = serverUrl ? t('settings-sync-status-connected') : t('settings-sync-status-disconnected');
+  }
 }
 
 // ----------------------------------------------------
