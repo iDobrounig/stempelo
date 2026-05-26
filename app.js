@@ -431,7 +431,7 @@ let timerInterval = null;
 let currentPinInput = '';
 
 // Calendar View State
-let historyViewMode = 'list'; // 'list' or 'calendar'
+let historyViewMode = 'calendar'; // 'list' or 'calendar'
 let calendarActiveDate = Temporal.Now.plainDateISO();
 
 // ----------------------------------------------------
@@ -812,6 +812,8 @@ async function updateHistoryTab() {
   if (historyViewMode === 'calendar') {
     document.getElementById('history-list-view').style.display = 'none';
     document.getElementById('history-calendar-view').style.display = 'block';
+    document.getElementById('filter-period').closest('.filter-group').classList.add('hidden');
+    document.getElementById('filter-custom-dates').classList.add('hidden');
     renderHistoryCalendar(daysMap);
     return;
   }
@@ -819,6 +821,11 @@ async function updateHistoryTab() {
   // Otherwise, list view mode
   document.getElementById('history-list-view').style.display = 'block';
   document.getElementById('history-calendar-view').style.display = 'none';
+  document.getElementById('filter-period').closest('.filter-group').classList.remove('hidden');
+  const customDatesEl = document.getElementById('filter-custom-dates');
+  if (document.getElementById('filter-period').value === 'custom') {
+    customDatesEl.classList.remove('hidden');
+  }
 
   // Sort dates descending
   const dates = Object.keys(daysMap).sort((a, b) => b.localeCompare(a));

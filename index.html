@@ -169,8 +169,8 @@
           <!-- Segmented View Switcher -->
           <div class="view-switcher-container">
             <div class="segmented-control">
-              <button type="button" id="btn-view-list" class="control-item active" data-i18n="history-view-list">Tabelle</button>
-              <button type="button" id="btn-view-calendar" class="control-item" data-i18n="history-view-calendar">Kalender</button>
+              <button type="button" id="btn-view-list" class="control-item" data-i18n="history-view-list">Tabelle</button>
+              <button type="button" id="btn-view-calendar" class="control-item active" data-i18n="history-view-calendar">Kalender</button>
             </div>
           </div>
 
@@ -217,7 +217,7 @@
           </div>
 
           <!-- Table View (List) -->
-          <div id="history-list-view" class="list-container glass scroller">
+          <div id="history-list-view" class="list-container glass scroller" style="display: none;">
             <div class="table-responsive">
               <table class="data-table">
                 <thead>
@@ -243,7 +243,7 @@
           </div>
 
           <!-- Calendar View -->
-          <div id="history-calendar-view" class="list-container glass scroller" style="display: none;">
+          <div id="history-calendar-view" class="list-container glass scroller">
             <!-- Calendar Navigation Header -->
             <div class="calendar-header-nav">
               <button type="button" id="btn-cal-prev" class="btn secondary small">&lt;</button>
