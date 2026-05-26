@@ -166,6 +166,14 @@
             </div>
           </div>
 
+          <!-- Segmented View Switcher -->
+          <div class="view-switcher-container">
+            <div class="segmented-control">
+              <button type="button" id="btn-view-list" class="control-item active" data-i18n="history-view-list">Tabelle</button>
+              <button type="button" id="btn-view-calendar" class="control-item" data-i18n="history-view-calendar">Kalender</button>
+            </div>
+          </div>
+
           <!-- Filter Bar -->
           <div class="filter-bar glass">
             <div class="filter-group">
@@ -208,7 +216,8 @@
             </div>
           </div>
 
-          <div class="list-container glass scroller">
+          <!-- Table View (List) -->
+          <div id="history-list-view" class="list-container glass scroller">
             <div class="table-responsive">
               <table class="data-table">
                 <thead>
@@ -230,6 +239,31 @@
                   <!-- Dynamically populated sums -->
                 </tfoot>
               </table>
+            </div>
+          </div>
+
+          <!-- Calendar View -->
+          <div id="history-calendar-view" class="list-container glass scroller" style="display: none;">
+            <!-- Calendar Navigation Header -->
+            <div class="calendar-header-nav">
+              <button type="button" id="btn-cal-prev" class="btn secondary small">&lt;</button>
+              <span id="cal-month-title"></span>
+              <button type="button" id="btn-cal-next" class="btn secondary small">&gt;</button>
+            </div>
+            <!-- Calendar Grid -->
+            <div class="calendar-grid">
+              <div class="cal-weekday" data-i18n="weekday-mon">Mo</div>
+              <div class="cal-weekday" data-i18n="weekday-tue">Di</div>
+              <div class="cal-weekday" data-i18n="weekday-wed">Mi</div>
+              <div class="cal-weekday" data-i18n="weekday-thu">Do</div>
+              <div class="cal-weekday" data-i18n="weekday-fri">Fr</div>
+              <div class="cal-weekday" data-i18n="weekday-sat">Sa</div>
+              <div class="cal-weekday" data-i18n="weekday-sun">So</div>
+              <!-- Day cells populated dynamically -->
+            </div>
+            <!-- Day Details Panel -->
+            <div id="calendar-day-details" class="day-details-panel glass">
+              <!-- Selected day summary and context-dependent buttons populated dynamically -->
             </div>
           </div>
         </section>

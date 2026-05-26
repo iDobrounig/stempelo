@@ -1228,4 +1228,254 @@ body {
   font-size: 0.8rem;
 }
 
+/* History Segmented View Switcher & Calendar View */
+.view-switcher-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.segmented-control {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-card-border);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented-control .control-item {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 17px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.segmented-control .control-item:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.segmented-control .control-item.active {
+  color: var(--color-accent);
+  background: rgba(0, 242, 254, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 242, 254, 0.1);
+}
+
+.calendar-header-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 0 10px;
+}
+
+#cal-month-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  min-width: 120px;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 15px;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 6px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.calendar-cell {
+  position: relative;
+  aspect-ratio: 1/1;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 52px;
+}
+
+.calendar-cell:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.calendar-cell.empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.calendar-cell.today {
+  border-color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.calendar-cell.selected {
+  border-color: var(--color-accent);
+  background: rgba(0, 242, 254, 0.05);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.cell-day-num {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  align-self: flex-start;
+}
+
+.calendar-cell.today .cell-day-num {
+  color: var(--color-accent);
+  font-weight: 800;
+}
+
+.cell-hours-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  background: rgba(0, 242, 254, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
+  align-self: flex-end;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-cell.has-punches {
+  border-color: rgba(0, 242, 254, 0.25);
+}
+
+.calendar-cell.has-punches.selected {
+  border-color: var(--color-accent);
+}
+
+/* Absence Colors in Calendar Cells */
+.calendar-cell.absence-vacation {
+  background: rgba(0, 184, 148, 0.08);
+  border-color: rgba(0, 184, 148, 0.2);
+}
+.calendar-cell.absence-vacation .cell-day-num {
+  color: #00b894;
+}
+
+.calendar-cell.absence-sick {
+  background: rgba(225, 112, 85, 0.08);
+  border-color: rgba(225, 112, 85, 0.2);
+}
+.calendar-cell.absence-sick .cell-day-num {
+  color: #e17055;
+}
+
+.calendar-cell.absence-holiday {
+  background: rgba(253, 203, 110, 0.08);
+  border-color: rgba(253, 203, 110, 0.2);
+}
+.calendar-cell.absence-holiday .cell-day-num {
+  color: #fdcb6e;
+}
+
+.calendar-cell.absence-compensation {
+  background: rgba(162, 155, 254, 0.08);
+  border-color: rgba(162, 155, 254, 0.2);
+}
+.calendar-cell.absence-compensation .cell-day-num {
+  color: #a29bfe;
+}
+
+.cell-absence-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 3px;
+  border-radius: 3px;
+  align-self: flex-end;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.absence-vacation .cell-absence-badge { background: #00b894; }
+.absence-sick .cell-absence-badge { background: #e17055; }
+.absence-holiday .cell-absence-badge { background: #fdcb6e; color: #2d3436; }
+.absence-compensation .cell-absence-badge { background: #a29bfe; }
+
+/* Day details panel */
+.day-details-panel {
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid var(--color-card-border);
+  background: rgba(255, 255, 255, 0.02);
+  margin-top: 15px;
+  animation: calFadeIn 0.25s ease-out;
+}
+
+.day-details-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 6px;
+}
+
+.day-details-content {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin-bottom: 12px;
+}
+
+.day-details-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@keyframes calFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .calendar-grid {
+    gap: 4px;
+  }
+  .calendar-cell {
+    padding: 3px;
+    min-height: 44px;
+    border-radius: 6px;
+  }
+  .cell-day-num {
+    font-size: 0.75rem;
+  }
+  .cell-hours-badge, .cell-absence-badge {
+    font-size: 0.6rem;
+    padding: 0 2px;
+  }
+}
+
+
 

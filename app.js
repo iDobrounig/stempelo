@@ -430,6 +430,10 @@ let currentTab = 'tab-punch';
 let timerInterval = null;
 let currentPinInput = '';
 
+// Calendar View State
+let historyViewMode = 'list'; // 'list' or 'calendar'
+let calendarActiveDate = Temporal.Now.plainDateISO();
+
 // ----------------------------------------------------
 // 3. Hashing & Security
 // ----------------------------------------------------
@@ -805,6 +809,17 @@ async function updateHistoryTab() {
     daysMap[off.date].timeOff = off;
   });
 
+  if (historyViewMode === 'calendar') {
+    document.getElementById('history-list-view').style.display = 'none';
+    document.getElementById('history-calendar-view').style.display = 'block';
+    renderHistoryCalendar(daysMap);
+    return;
+  }
+
+  // Otherwise, list view mode
+  document.getElementById('history-list-view').style.display = 'block';
+  document.getElementById('history-calendar-view').style.display = 'none';
+
   // Sort dates descending
   const dates = Object.keys(daysMap).sort((a, b) => b.localeCompare(a));
 
@@ -1001,6 +1016,231 @@ async function updateHistoryTab() {
       
       tfoot.appendChild(tr);
     }
+  }
+}
+
+function renderHistoryCalendar(daysMap) {
+  const container = document.getElementById('history-calendar-view');
+  const gridContainer = container.querySelector('.calendar-grid');
+  
+  // Clear previous calendar cells (keep weekday headers)
+  const cells = gridContainer.querySelectorAll('.calendar-cell');
+  cells.forEach(c => c.remove());
+
+  const activeYear = calendarActiveDate.year;
+  const activeMonth = calendarActiveDate.month;
+  
+  const monthName = new Intl.DateTimeFormat(getLanguage(), { month: 'long', year: 'numeric' }).format(
+    new Date(activeYear, activeMonth - 1, 1)
+  );
+  document.getElementById('cal-month-title').textContent = monthName;
+
+  const firstDay = Temporal.PlainDate.from({ year: activeYear, month: activeMonth, day: 1 });
+  const startWeekday = firstDay.dayOfWeek; 
+  
+  const numPlaceholders = startWeekday - 1;
+  for (let i = 0; i < numPlaceholders; i++) {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'calendar-cell empty';
+    gridContainer.appendChild(placeholder);
+  }
+
+  const daysInMonth = calendarActiveDate.daysInMonth;
+  const todayStr = Temporal.Now.plainDateISO().toString();
+  const selectedStr = calendarActiveDate.toString();
+
+  const filterType = document.getElementById('filter-type').value;
+  const filterManualOnly = document.getElementById('filter-manual-only').checked;
+
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cellDate = Temporal.PlainDate.from({ year: activeYear, month: activeMonth, day: day });
+    const cellDateStr = cellDate.toString();
+    const dateData = daysMap[cellDateStr] || { punches: [], timeOff: null };
+    
+    const wday = cellDate.dayOfWeek;
+    const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+    const stats = calculateDayDetails(soll, dateData.punches, dateData.timeOff);
+
+    const cell = document.createElement('div');
+    cell.className = 'calendar-cell';
+    cell.dataset.date = cellDateStr;
+    
+    if (cellDateStr === todayStr) cell.classList.add('today');
+    if (cellDateStr === selectedStr) cell.classList.add('selected');
+
+    const dayNum = document.createElement('span');
+    dayNum.className = 'cell-day-num';
+    dayNum.textContent = day;
+    cell.appendChild(dayNum);
+
+    let matchesFilter = true;
+    if (filterType !== 'all') {
+      if (filterType === 'work') {
+        if (stats.timeOffType) matchesFilter = false;
+      } else {
+        if (stats.timeOffType !== filterType) matchesFilter = false;
+      }
+    }
+    if (filterManualOnly) {
+      const hasManual = dateData.punches.some(p => p.manual_edit === 1 || p.manual_edit === true);
+      if (!hasManual) matchesFilter = false;
+    }
+
+    if (matchesFilter) {
+      if (stats.timeOffType) {
+        cell.classList.add(`absence-${stats.timeOffType}`);
+        const badge = document.createElement('span');
+        badge.className = 'cell-absence-badge';
+        const shortAbsenceLabel = {
+          vacation: 'U',
+          sick: 'K',
+          holiday: 'F',
+          compensation: 'ZA'
+        }[stats.timeOffType] || 'A';
+        badge.textContent = shortAbsenceLabel;
+        cell.appendChild(badge);
+      } else if (dateData.punches.length > 0) {
+        cell.classList.add('has-punches');
+        const badge = document.createElement('span');
+        badge.className = 'cell-hours-badge';
+        const formatted = formatHours(stats.istHours, 'decimal');
+        badge.textContent = formatted;
+        cell.appendChild(badge);
+      }
+    }
+
+    cell.onclick = () => {
+      calendarActiveDate = cellDate;
+      gridContainer.querySelectorAll('.calendar-cell').forEach(c => c.classList.remove('selected'));
+      cell.classList.add('selected');
+      renderCalendarDayDetails(cellDateStr, dateData, stats);
+    };
+
+    gridContainer.appendChild(cell);
+  }
+
+  const selectedData = daysMap[selectedStr] || { punches: [], timeOff: null };
+  const wday = calendarActiveDate.dayOfWeek;
+  const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+  const stats = calculateDayDetails(soll, selectedData.punches, selectedData.timeOff);
+  renderCalendarDayDetails(selectedStr, selectedData, stats);
+}
+
+function renderCalendarDayDetails(dateStr, dateData, stats) {
+  const panel = document.getElementById('calendar-day-details');
+  if (!panel) return;
+
+  const dateObj = new Date(dateStr);
+  const formattedDate = dateObj.toLocaleDateString(getLanguage(), {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  const titleHtml = `<div class="day-details-header">${t('calendar-details-title', { date: formattedDate })}</div>`;
+  
+  let contentHtml = '';
+  let actionsHtml = '';
+
+  if (stats.timeOffType) {
+    const absenceLabel = {
+      vacation: t('history-type-vacation'),
+      sick: t('history-type-sick'),
+      holiday: t('history-type-holiday'),
+      compensation: t('history-type-compensation')
+    }[stats.timeOffType] || stats.timeOffType;
+
+    contentHtml = `
+      <div class="day-details-content">
+        <strong>${t('calendar-details-absence')}:</strong> ${absenceLabel}<br>
+        <strong>${t('calendar-details-soll')}:</strong> ${formatHours(stats.sollHours)}
+      </div>
+    `;
+
+    actionsHtml = `
+      <button type="button" class="btn secondary text-danger small" id="btn-cal-action-delete-absence">
+        ${t('history-action-delete')}
+      </button>
+    `;
+  } else if (dateData.punches.length > 0) {
+    const punchLines = dateData.punches.map(p => {
+      const sStr = new Date(p.start_time).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' });
+      const eStr = p.end_time 
+        ? new Date(p.end_time).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' })
+        : t('history-active-punch');
+      return `${sStr} - ${eStr}`;
+    }).join(', ');
+
+    const formattedIst = formatHours(stats.istHours);
+    const formattedSoll = formatHours(stats.sollHours);
+    const formattedBreak = stats.totalBreakMinutes > 0 ? `${stats.totalBreakMinutes}m` : '0m';
+
+    contentHtml = `
+      <div class="day-details-content">
+        <strong>${t('calendar-details-punches')}:</strong> ${punchLines}<br>
+        <strong>${t('calendar-details-ist')}:</strong> ${formattedIst}<br>
+        <strong>${t('calendar-details-soll')}:</strong> ${formattedSoll}<br>
+        <strong>${t('calendar-details-break')}:</strong> ${formattedBreak}
+      </div>
+    `;
+
+    actionsHtml = `
+      <button type="button" class="btn primary small" id="btn-cal-action-edit-punches">
+        ${t('history-action-edit')}
+      </button>
+    `;
+  } else {
+    contentHtml = `
+      <div class="day-details-content" style="color: var(--color-text-muted);">
+        ${t('calendar-details-empty')}
+      </div>
+    `;
+
+    actionsHtml = `
+      <button type="button" class="btn secondary small" id="btn-cal-action-add-punch">
+        ${t('calendar-action-add-punch')}
+      </button>
+      <button type="button" class="btn secondary small" id="btn-cal-action-add-absence">
+        ${t('calendar-action-add-absence')}
+      </button>
+    `;
+  }
+
+  panel.innerHTML = `${titleHtml}${contentHtml}<div class="day-details-actions">${actionsHtml}</div>`;
+
+  const btnDelAbsence = document.getElementById('btn-cal-action-delete-absence');
+  if (btnDelAbsence) {
+    btnDelAbsence.onclick = async () => {
+      if (confirm(t('alert-confirm-delete-absence'))) {
+        await dbAdapter.delete('time_off', dateData.timeOff.id, currentUser.id);
+        updateHistoryTab();
+        triggerSilentSync();
+      }
+    };
+  }
+
+  const btnEditPunches = document.getElementById('btn-cal-action-edit-punches');
+  if (btnEditPunches) {
+    btnEditPunches.onclick = () => {
+      showEditPunchDialog(dateStr, dateData.punches);
+    };
+  }
+
+  const btnAddPunch = document.getElementById('btn-cal-action-add-punch');
+  if (btnAddPunch) {
+    btnAddPunch.onclick = () => {
+      showAddManualPunchDialog(dateStr);
+    };
+  }
+
+  const btnAddAbsence = document.getElementById('btn-cal-action-add-absence');
+  if (btnAddAbsence) {
+    btnAddAbsence.onclick = () => {
+      showAddTimeOffDialog(dateStr);
+    };
   }
 }
 
@@ -1872,12 +2112,11 @@ document.getElementById('btn-break-toggle').onclick = async () => {
   triggerSilentSync();
 };
 
-// Add Manual Time Entry
-document.getElementById('btn-add-manual-punch').onclick = () => {
+function showAddManualPunchDialog(dateStr) {
   const dlg = document.getElementById('dlg-manual-punch');
-  document.getElementById('manual-punch-title').textContent = 'Arbeitszeit manuell eintragen';
+  document.getElementById('manual-punch-title').textContent = t('manual-title-add');
   document.getElementById('edit-punch-id').value = '';
-  document.getElementById('manual-date').value = Temporal.Now.plainDateISO().toString();
+  document.getElementById('manual-date').value = dateStr;
   
   // Set required attributes and show single punch fields
   document.getElementById('single-punch-fields').style.display = 'block';
@@ -1893,6 +2132,11 @@ document.getElementById('btn-add-manual-punch').onclick = () => {
   updateSinglePunchSummary();
   dlg.showModal();
   document.getElementById('btn-cancel-manual-punch')?.focus({ preventScroll: true });
+}
+
+// Add Manual Time Entry
+document.getElementById('btn-add-manual-punch').onclick = () => {
+  showAddManualPunchDialog(Temporal.Now.plainDateISO().toString());
 };
 
 document.getElementById('form-manual-punch').onsubmit = async (e) => {
@@ -2102,12 +2346,16 @@ document.getElementById('btn-delete-punch').onclick = async () => {
   }
 };
 
-// Add Time Off (Abwesenheit)
-document.getElementById('btn-add-timeoff').onclick = () => {
+function showAddTimeOffDialog(dateStr) {
   const dlg = document.getElementById('dlg-timeoff');
-  document.getElementById('timeoff-date').value = Temporal.Now.plainDateISO().toString();
+  document.getElementById('timeoff-date').value = dateStr;
   dlg.showModal();
   document.getElementById('btn-cancel-timeoff')?.focus({ preventScroll: true });
+}
+
+// Add Time Off (Abwesenheit)
+document.getElementById('btn-add-timeoff').onclick = () => {
+  showAddTimeOffDialog(Temporal.Now.plainDateISO().toString());
 };
 
 document.getElementById('form-timeoff').onsubmit = async (e) => {
@@ -2217,6 +2465,39 @@ document.querySelectorAll('.btn-lock-lang').forEach(btn => {
     applyGlobalLanguage(lang);
   };
 });
+
+// History Tab View Switcher Event Handlers
+document.getElementById('btn-view-list').onclick = () => {
+  historyViewMode = 'list';
+  document.getElementById('btn-view-list').classList.add('active');
+  document.getElementById('btn-view-calendar').classList.remove('active');
+  document.getElementById('filter-period').closest('.filter-group').classList.remove('hidden');
+  const customDatesEl = document.getElementById('filter-custom-dates');
+  if (document.getElementById('filter-period').value === 'custom') {
+    customDatesEl.classList.remove('hidden');
+  }
+  updateHistoryTab();
+};
+
+document.getElementById('btn-view-calendar').onclick = () => {
+  historyViewMode = 'calendar';
+  document.getElementById('btn-view-calendar').classList.add('active');
+  document.getElementById('btn-view-list').classList.remove('active');
+  document.getElementById('filter-period').closest('.filter-group').classList.add('hidden');
+  document.getElementById('filter-custom-dates').classList.add('hidden');
+  updateHistoryTab();
+};
+
+// Calendar Navigation
+document.getElementById('btn-cal-prev').onclick = () => {
+  calendarActiveDate = calendarActiveDate.subtract({ months: 1 });
+  updateHistoryTab();
+};
+
+document.getElementById('btn-cal-next').onclick = () => {
+  calendarActiveDate = calendarActiveDate.add({ months: 1 });
+  updateHistoryTab();
+};
 
 // Dropdown user select changer language auto-apply
 document.getElementById('user-select').onchange = async () => {
