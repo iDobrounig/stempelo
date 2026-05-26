@@ -1477,5 +1477,10 @@ body {
   }
 }
 
+#history-calendar-view {
+  max-height: none;
+}
+
+
 
 
