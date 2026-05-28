@@ -120,6 +120,13 @@ const translations = {
     'settings-sync-btn-backup': 'Backup (JSON) laden/speichern',
     'settings-label-language': 'Sprache',
 
+    // Overtime Account
+    'settings-overtime-title': 'Überstundenkonto',
+    'settings-label-overtime-date': 'Startdatum (Berechnungsbasis)',
+    'settings-label-overtime-hours': 'Start-Saldo (Stunden)',
+    'punch-overtime-balance-title': 'Überstundenkonto',
+    'punch-overtime-details': 'Start-Saldo am {date}: {startHours} | Seitdem: {accumulatedHours}',
+
     // Nav Bar
     'nav-punch': 'Stempel',
     'nav-times': 'Zeiten',
@@ -338,6 +345,13 @@ const translations = {
     'settings-sync-btn-csv': 'Export as CSV',
     'settings-sync-btn-backup': 'Load/Save Backup (JSON)',
     'settings-label-language': 'Language',
+
+    // Overtime Account
+    'settings-overtime-title': 'Overtime Account',
+    'settings-label-overtime-date': 'Start Date (Calculation Base)',
+    'settings-label-overtime-hours': 'Start Balance (Hours)',
+    'punch-overtime-balance-title': 'Overtime Account',
+    'punch-overtime-details': 'Start balance on {date}: {startHours} | Since then: {accumulatedHours}',
 
     // Nav Bar
     'nav-punch': 'Punch',

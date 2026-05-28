@@ -539,6 +539,62 @@ function calculateDayDetails(targetSoll, punches, timeOffDay) {
 }
 
 /**
+ * Calculates cumulative overtime starting from the user's overtime baseline date
+ */
+function calculateCumulativeOvertime(user, punches, timeOff) {
+  if (!user.overtime_start_date) return null;
+
+  let startDate;
+  try {
+    startDate = Temporal.PlainDate.from(user.overtime_start_date);
+  } catch (e) {
+    console.error('Invalid overtime start date format:', user.overtime_start_date, e);
+    return null;
+  }
+
+  const today = Temporal.Now.plainDateISO();
+  
+  if (Temporal.PlainDate.compare(startDate, today) > 0) {
+    return {
+      startHours: user.overtime_start_hours || 0,
+      accumulatedHours: 0,
+      totalHours: user.overtime_start_hours || 0,
+      startDate: user.overtime_start_date
+    };
+  }
+
+  const userPunches = punches.filter(p => p.user_id === user.id);
+  const userTimeOff = timeOff.filter(o => o.user_id === user.id);
+
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+  let accumulatedHours = 0;
+  let iter = startDate;
+
+  while (Temporal.PlainDate.compare(iter, today) <= 0) {
+    const dateStr = iter.toString();
+    const wday = iter.dayOfWeek;
+    const daySoll = user.daily_soll[weekdayKeys[wday - 1]] || 0;
+
+    const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
+    const dayTimeOff = userTimeOff.find(o => o.date === dateStr);
+
+    const stats = calculateDayDetails(daySoll, dayPunches, dayTimeOff);
+    accumulatedHours += stats.saldoHours;
+
+    iter = iter.add({ days: 1 });
+  }
+
+  const startHours = user.overtime_start_hours !== undefined ? parseFloat(user.overtime_start_hours) : 0.0;
+  return {
+    startHours,
+    accumulatedHours,
+    totalHours: startHours + accumulatedHours,
+    startDate: user.overtime_start_date
+  };
+}
+
+/**
  * Formats a duration in decimal hours (e.g. 7.5h) or human readable (e.g. 7 Std. 30 Min.)
  */
 function formatHours(hours, formatType = 'decimal') {
@@ -655,6 +711,35 @@ async function updatePunchTab() {
   const saldoEl = document.getElementById('stats-saldo-today');
   saldoEl.textContent = formatHours(stats.saldoHours);
   saldoEl.className = 'stat-value ' + (stats.saldoHours >= 0 ? 'text-success' : 'text-danger');
+
+  // Cumulative Overtime Account card
+  const overtimePanel = document.getElementById('overtime-balance-panel');
+  if (currentUser.overtime_start_date) {
+    const overtimeResult = calculateCumulativeOvertime(currentUser, allPunches, allTimeOff);
+    if (overtimeResult) {
+      overtimePanel.classList.remove('hidden');
+      const valEl = document.getElementById('overtime-total-balance');
+      const sign = overtimeResult.totalHours > 0 ? '+' : '';
+      valEl.textContent = `${sign}${formatHours(overtimeResult.totalHours)}`;
+      valEl.className = 'stat-value ' + (overtimeResult.totalHours >= 0 ? 'text-success' : 'text-danger');
+      
+      const detailsEl = document.getElementById('overtime-balance-details');
+      const startDt = Temporal.PlainDate.from(overtimeResult.startDate);
+      const formattedStartDate = startDt.toLocaleString(getLanguage(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+      
+      detailsEl.innerHTML = t('punch-overtime-details', {
+        date: formattedStartDate,
+        startHours: formatHours(overtimeResult.startHours),
+        accumulatedHours: formatHours(overtimeResult.accumulatedHours)
+      });
+      
+      overtimePanel.className = 'overtime-card glass ' + (overtimeResult.totalHours >= 0 ? 'border-green' : 'border-red');
+    } else {
+      overtimePanel.classList.add('hidden');
+    }
+  } else {
+    overtimePanel.classList.add('hidden');
+  }
 
   // Break deductions alert
   if (stats.hasBreakAlert) {
@@ -1608,6 +1693,9 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
 
     document.getElementById('set-user-lang').value = currentUser.language || 'de';
 
+    document.getElementById('set-overtime-start-date').value = currentUser.overtime_start_date || '';
+    document.getElementById('set-overtime-start-hours').value = currentUser.overtime_start_hours !== undefined ? currentUser.overtime_start_hours : 0.0;
+
     const serverUrl = SyncService.getServerUrl();
     document.getElementById('sync-server-url').value = serverUrl;
   }
@@ -2425,6 +2513,12 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   };
 
   currentUser.weekly_hours = Object.values(currentUser.daily_soll).reduce((a, b) => a + b, 0);
+
+  const overtimeStartDate = document.getElementById('set-overtime-start-date').value;
+  const overtimeStartHours = parseFloat(document.getElementById('set-overtime-start-hours').value) || 0.0;
+
+  currentUser.overtime_start_date = overtimeStartDate || null;
+  currentUser.overtime_start_hours = overtimeStartHours;
 
   await dbAdapter.put('users', currentUser);
   document.getElementById('current-user-name').textContent = name;

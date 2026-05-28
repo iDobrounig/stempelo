@@ -55,6 +55,8 @@ function createTables() {
         weekly_hours REAL NOT NULL,
         daily_soll TEXT NOT NULL, -- JSON String
         language TEXT DEFAULT 'de',
+        overtime_start_date TEXT,
+        overtime_start_hours REAL DEFAULT 0.0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
@@ -74,6 +76,26 @@ function createTables() {
             console.error('Failed to migrate: error adding language column to users:', err.message);
           } else {
             console.log('Successfully migrated users table: added language column.');
+          }
+        });
+      }
+      const hasOvertimeStartDate = columns.some(col => col.name === 'overtime_start_date');
+      if (!hasOvertimeStartDate) {
+        db.run("ALTER TABLE users ADD COLUMN overtime_start_date TEXT", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding overtime_start_date column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added overtime_start_date column.');
+          }
+        });
+      }
+      const hasOvertimeStartHours = columns.some(col => col.name === 'overtime_start_hours');
+      if (!hasOvertimeStartHours) {
+        db.run("ALTER TABLE users ADD COLUMN overtime_start_hours REAL DEFAULT 0.0", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding overtime_start_hours column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added overtime_start_hours column.');
           }
         });
       }
@@ -136,19 +158,33 @@ app.post('/api/sync', async (req, res) => {
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
               weekly_hours = excluded.weekly_hours,
               daily_soll = excluded.daily_soll,
               language = excluded.language,
+              overtime_start_date = excluded.overtime_start_date,
+              overtime_start_hours = excluded.overtime_start_hours,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
             WHERE excluded.updated_at > users.updated_at
-          `, [user.id, user.name, user.pin, user.weekly_hours, JSON.stringify(user.daily_soll), user.language || 'de', user.created_at, user.updated_at, user.deleted ? 1 : 0]);
+          `, [
+            user.id,
+            user.name,
+            user.pin,
+            user.weekly_hours,
+            JSON.stringify(user.daily_soll),
+            user.language || 'de',
+            user.overtime_start_date || null,
+            user.overtime_start_hours !== undefined ? user.overtime_start_hours : 0.0,
+            user.created_at,
+            user.updated_at,
+            user.deleted ? 1 : 0
+          ]);
         }
       }
 

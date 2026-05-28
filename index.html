@@ -148,6 +148,15 @@
             </div>
           </div>
 
+          <!-- Cumulative Overtime Balance Panel -->
+          <div id="overtime-balance-panel" class="overtime-card glass hidden">
+            <div class="overtime-header">
+              <span class="stat-title" data-i18n="punch-overtime-balance-title">Überstundenkonto</span>
+              <span class="stat-value" id="overtime-total-balance">+0,00h</span>
+            </div>
+            <div class="overtime-details" id="overtime-balance-details"></div>
+          </div>
+
           <!-- Active Break Deductions Alert -->
           <div id="alert-break-deductions" class="alert-info glass hidden">
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
@@ -364,6 +373,18 @@
                   <div class="soll-day">
                     <label for="soll-sun" data-i18n="weekday-sun">So</label>
                     <input type="number" id="soll-sun" min="0" max="24" step="0.1" required>
+                  </div>
+                </div>
+
+                <h4 class="settings-sub" data-i18n="settings-overtime-title">Überstundenkonto</h4>
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="set-overtime-start-date" data-i18n="settings-label-overtime-date">Startdatum (Berechnungsbasis)</label>
+                    <input type="date" id="set-overtime-start-date">
+                  </div>
+                  <div class="form-group">
+                    <label for="set-overtime-start-hours" data-i18n="settings-label-overtime-hours">Start-Saldo (Stunden)</label>
+                    <input type="number" id="set-overtime-start-hours" step="0.1" value="0.0">
                   </div>
                 </div>
 
