@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stempelo-v24';
+const CACHE_NAME = 'stempelo-v25';
 const ASSETS = [
   './',
   'index.html',
@@ -8,7 +8,8 @@ const ASSETS = [
   'syncService.js',
   'temporal-polyfill.js',
   'manifest.json',
-  'assets/icon.png'
+  'assets/icon.png',
+  'favicon.ico'
 ];
 
 // Install Service Worker and cache assets
