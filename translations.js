@@ -127,6 +127,14 @@ const translations = {
     'punch-overtime-balance-title': 'Überstundenkonto',
     'punch-overtime-details': 'Start-Saldo am {date}: {startHours} | Seitdem: {accumulatedHours}',
 
+    // Notifications
+    'settings-notifications-title': 'Benachrichtigungen',
+    'settings-label-notifications': 'Pausen-Erinnerungen per Push-Notification aktivieren',
+    'notification-work-reminder-title': 'Zeit für eine Pause! ☕',
+    'notification-work-reminder-body': 'Du arbeitest bereits seit 6 Stunden. Nimm dir bitte eine gesetzliche Pause von 30 Minuten.',
+    'notification-break-reminder-title': 'Pause beenden 🕒',
+    'notification-break-reminder-body': 'Deine 30-minütige Pause ist vorbei. Vergiss nicht wieder einzustempeln.',
+
     // Nav Bar
     'nav-punch': 'Stempel',
     'nav-times': 'Zeiten',
@@ -352,6 +360,14 @@ const translations = {
     'settings-label-overtime-hours': 'Start Balance (Hours)',
     'punch-overtime-balance-title': 'Overtime Account',
     'punch-overtime-details': 'Start balance on {date}: {startHours} | Since then: {accumulatedHours}',
+
+    // Notifications
+    'settings-notifications-title': 'Notifications',
+    'settings-label-notifications': 'Enable break reminders via push notifications',
+    'notification-work-reminder-title': 'Time for a break! ☕',
+    'notification-work-reminder-body': 'You have been working for 6 hours. Please take a statutory 30-minute break.',
+    'notification-break-reminder-title': 'Break complete 🕒',
+    'notification-break-reminder-body': 'Your 30-minute break is complete. Don\'t forget to punch back in.',
 
     // Nav Bar
     'nav-punch': 'Punch',

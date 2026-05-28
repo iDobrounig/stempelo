@@ -594,6 +594,111 @@ function calculateCumulativeOvertime(user, punches, timeOff) {
   };
 }
 
+let workReminderTimeout = null;
+let breakReminderTimeout = null;
+
+function clearReminderTimers() {
+  if (workReminderTimeout) {
+    clearTimeout(workReminderTimeout);
+    workReminderTimeout = null;
+  }
+  if (breakReminderTimeout) {
+    clearTimeout(breakReminderTimeout);
+    breakReminderTimeout = null;
+  }
+}
+
+async function requestNotificationPermission() {
+  if ('Notification' in window) {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.warn('Notification permission denied or ignored:', permission);
+    }
+    return permission;
+  }
+  return 'default';
+}
+
+async function scheduleReminderTimers() {
+  clearReminderTimers();
+
+  if (!currentUser || !currentUser.notifications_enabled) return;
+  if ('Notification' in window && Notification.permission !== 'granted') return;
+
+  const todayStr = Temporal.Now.plainDateISO().toString();
+  const allPunches = await dbAdapter.getAll('punches');
+  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+  const todayPunches = userPunches.filter(p => p.start_time.startsWith(todayStr));
+
+  const isBreakActive = storageGetItem(`user-break-active-${currentUser.id}`) === 'true';
+  if (isBreakActive) {
+    const breakStartStr = storageGetItem(`user-break-start-${currentUser.id}`);
+    if (breakStartStr) {
+      try {
+        const startInstant = Temporal.Instant.from(breakStartStr);
+        const now = Temporal.Now.instant();
+        const breakLimit = startInstant.add({ minutes: 30 });
+        
+        if (Temporal.PlainDate.compare(Temporal.PlainDate.from(breakStartStr.split('T')[0]), Temporal.Now.plainDateISO()) === 0) {
+          if (Temporal.Instant.compare(now, breakLimit) < 0) {
+            const msRemaining = now.until(breakLimit).total({ unit: 'millisecond' });
+            breakReminderTimeout = setTimeout(() => {
+              sendLocalNotification(
+                t('notification-break-reminder-title'),
+                t('notification-break-reminder-body')
+              );
+            }, msRemaining);
+            console.log(`Scheduled break completion reminder in ${Math.round(msRemaining/1000)} seconds.`);
+          }
+        }
+      } catch (e) {
+        console.error('Error scheduling break reminder:', e);
+      }
+    }
+    return;
+  }
+
+  const weekday = Temporal.Now.plainDateISO().dayOfWeek;
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const todaySoll = currentUser.daily_soll[weekdayKeys[weekday - 1]] || 0;
+  const todayTimeOff = null;
+  const stats = calculateDayDetails(todaySoll, todayPunches, todayTimeOff);
+
+  if (stats.activePunch) {
+    const currentGrossMinutes = stats.grossHours * 60;
+    if (currentGrossMinutes < 360) {
+      const msRemaining = (360 - currentGrossMinutes) * 60 * 1000;
+      workReminderTimeout = setTimeout(() => {
+        sendLocalNotification(
+          t('notification-work-reminder-title'),
+          t('notification-work-reminder-body')
+        );
+      }, msRemaining);
+      console.log(`Scheduled work break reminder in ${Math.round(msRemaining/1000)} seconds.`);
+    }
+  }
+}
+
+function sendLocalNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const options = {
+    body: body,
+    icon: 'assets/icon.png',
+    badge: 'assets/icon.png',
+    vibrate: [200, 100, 200],
+    data: { url: window.location.origin }
+  };
+
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(registration => {
+      registration.showNotification(title, options);
+    });
+  } else {
+    new Notification(title, options);
+  }
+}
+
 /**
  * Formats a duration in decimal hours (e.g. 7.5h) or human readable (e.g. 7 Std. 30 Min.)
  */
@@ -832,6 +937,9 @@ async function updatePunchTab() {
 
     document.getElementById('live-timer').textContent = '00:00:00';
   }
+
+  // Schedule or clear break notifications
+  scheduleReminderTimers();
 }
 
 /**
@@ -1696,6 +1804,8 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
     document.getElementById('set-overtime-start-date').value = currentUser.overtime_start_date || '';
     document.getElementById('set-overtime-start-hours').value = currentUser.overtime_start_hours !== undefined ? currentUser.overtime_start_hours : 0.0;
 
+    document.getElementById('set-user-notifications').checked = !!currentUser.notifications_enabled;
+
     const serverUrl = SyncService.getServerUrl();
     document.getElementById('sync-server-url').value = serverUrl;
   }
@@ -2519,6 +2629,15 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
 
   currentUser.overtime_start_date = overtimeStartDate || null;
   currentUser.overtime_start_hours = overtimeStartHours;
+
+  const notificationsEnabled = document.getElementById('set-user-notifications').checked;
+  currentUser.notifications_enabled = notificationsEnabled;
+
+  if (notificationsEnabled && ('Notification' in window) && Notification.permission !== 'granted') {
+    await requestNotificationPermission();
+  } else if (!notificationsEnabled) {
+    clearReminderTimers();
+  }
 
   await dbAdapter.put('users', currentUser);
   document.getElementById('current-user-name').textContent = name;
