@@ -135,6 +135,19 @@ const translations = {
     'notification-break-reminder-title': 'Pause beenden 🕒',
     'notification-break-reminder-body': 'Deine 30-minütige Pause ist vorbei. Vergiss nicht wieder einzustempeln.',
 
+    // Weekly Progress
+    'punch-weekly-progress-title': 'Wochenfortschritt',
+    'punch-weekly-progress-subtitle': '{actual} / {target} Std. – {percent}%',
+
+    // Holiday Import
+    'settings-holiday-title': 'Feiertags-Import',
+    'settings-label-holiday-country': 'Land',
+    'settings-holiday-none': 'Kein automatischer Import',
+    'settings-btn-import-holidays': 'Feiertage laden',
+    'alert-holidays-imported': 'Erfolgreich {count} Feiertage für {year} importiert!',
+    'alert-holidays-failed': 'Feiertags-Import fehlgeschlagen: {error}',
+    'alert-select-country': 'Bitte wähle zuerst ein Land aus.',
+
     // Nav Bar
     'nav-punch': 'Stempel',
     'nav-times': 'Zeiten',
@@ -368,6 +381,19 @@ const translations = {
     'notification-work-reminder-body': 'You have been working for 6 hours. Please take a statutory 30-minute break.',
     'notification-break-reminder-title': 'Break complete 🕒',
     'notification-break-reminder-body': 'Your 30-minute break is complete. Don\'t forget to punch back in.',
+
+    // Weekly Progress
+    'punch-weekly-progress-title': 'Weekly Progress',
+    'punch-weekly-progress-subtitle': '{actual} / {target} hrs – {percent}%',
+
+    // Holiday Import
+    'settings-holiday-title': 'Holiday Import',
+    'settings-label-holiday-country': 'Country',
+    'settings-holiday-none': 'No automatic import',
+    'settings-btn-import-holidays': 'Load Holidays',
+    'alert-holidays-imported': 'Successfully imported {count} holidays for {year}!',
+    'alert-holidays-failed': 'Holiday import failed: {error}',
+    'alert-select-country': 'Please select a country first.',
 
     // Nav Bar
     'nav-punch': 'Punch',

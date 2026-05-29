@@ -846,6 +846,40 @@ async function updatePunchTab() {
     overtimePanel.classList.add('hidden');
   }
 
+  // --- Weekly Progress ---
+  const today = Temporal.Now.plainDateISO();
+  const startOfWeek = today.subtract({ days: today.dayOfWeek - 1 });
+  
+  let weeklySoll = 0;
+  let weeklyIst = 0;
+  
+  for (let i = 0; i < 7; i++) {
+    const dayDate = startOfWeek.add({ days: i });
+    const dateStr = dayDate.toString();
+    const wday = dayDate.dayOfWeek;
+    const daySoll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+    weeklySoll += daySoll;
+    
+    const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
+    const dayTimeOff = allTimeOff.find(o => o.user_id === currentUser.id && o.date === dateStr);
+    
+    const dayStats = calculateDayDetails(daySoll, dayPunches, dayTimeOff);
+    weeklyIst += dayStats.istHours;
+  }
+  
+  const weeklyPercent = weeklySoll > 0 ? Math.min(100, Math.round((weeklyIst / weeklySoll) * 100)) : 0;
+  
+  const progressStatsEl = document.getElementById('weekly-progress-stats');
+  const progressFillEl = document.getElementById('weekly-progress-fill');
+  if (progressStatsEl && progressFillEl) {
+    progressStatsEl.textContent = t('punch-weekly-progress-subtitle', {
+      actual: formatHours(weeklyIst),
+      target: formatHours(weeklySoll),
+      percent: weeklyPercent
+    });
+    progressFillEl.style.width = `${weeklyPercent}%`;
+  }
+
   // Break deductions alert
   if (stats.hasBreakAlert) {
     document.getElementById('alert-break-deductions').classList.remove('hidden');
@@ -1805,6 +1839,7 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
     document.getElementById('set-overtime-start-hours').value = currentUser.overtime_start_hours !== undefined ? currentUser.overtime_start_hours : 0.0;
 
     document.getElementById('set-user-notifications').checked = !!currentUser.notifications_enabled;
+    document.getElementById('set-holiday-country').value = currentUser.holiday_country || '';
 
     const serverUrl = SyncService.getServerUrl();
     document.getElementById('sync-server-url').value = serverUrl;
@@ -2633,6 +2668,9 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   const notificationsEnabled = document.getElementById('set-user-notifications').checked;
   currentUser.notifications_enabled = notificationsEnabled;
 
+  const holidayCountry = document.getElementById('set-holiday-country').value;
+  currentUser.holiday_country = holidayCountry || null;
+
   if (notificationsEnabled && ('Notification' in window) && Notification.permission !== 'granted') {
     await requestNotificationPermission();
   } else if (!notificationsEnabled) {
@@ -2814,6 +2852,70 @@ document.getElementById('btn-sync-now').onclick = async () => {
     syncBtn.disabled = false;
     syncBtn.textContent = t('settings-sync-btn-now');
     updateSettingsTab();
+  }
+};
+
+document.getElementById('btn-import-holidays').onclick = async () => {
+  if (!currentUser) return;
+  const countryCode = document.getElementById('set-holiday-country').value;
+  if (!countryCode) {
+    alert(t('alert-select-country'));
+    return;
+  }
+
+  const btnImport = document.getElementById('btn-import-holidays');
+  btnImport.disabled = true;
+  const originalText = btnImport.textContent;
+  btnImport.textContent = getLanguage() === 'de' ? 'Lädt...' : 'Loading...';
+
+  const year = Temporal.Now.plainDateISO().year;
+  const url = `https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const holidays = await response.json();
+
+    const allTimeOff = await dbAdapter.getAll('time_off');
+    const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id && o.deleted === 0);
+
+    let count = 0;
+    for (const hol of holidays) {
+      // Only import actual public holidays (ignore school holidays, etc.)
+      if (hol.types && !hol.types.includes('Public')) {
+        continue;
+      }
+      const holDate = hol.date; // YYYY-MM-DD
+      const exists = userTimeOff.some(o => o.date === holDate);
+      if (!exists) {
+        const off = {
+          id: crypto.randomUUID(),
+          user_id: currentUser.id,
+          date: holDate,
+          type: 'holiday',
+          created_at: new Date().toISOString(),
+          deleted: 0
+        };
+        await dbAdapter.put('time_off', off);
+        await dbAdapter.logAudit(currentUser.id, 'insert', 'time_off', off.id, null, off);
+        count++;
+      }
+    }
+
+    alert(t('alert-holidays-imported', { count, year }));
+
+    currentUser.holiday_country = countryCode;
+    await dbAdapter.put('users', currentUser);
+
+    updateHistoryTab();
+    if (currentTab === 'tab-punch') updatePunchTab();
+    triggerSilentSync();
+  } catch (error) {
+    console.error('Failed to import holidays:', error);
+    alert(t('alert-holidays-failed', { error: error.message }));
+  } finally {
+    btnImport.disabled = false;
+    btnImport.textContent = originalText;
   }
 };
 

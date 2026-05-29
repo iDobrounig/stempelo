@@ -57,6 +57,7 @@ function createTables() {
         language TEXT DEFAULT 'de',
         overtime_start_date TEXT,
         overtime_start_hours REAL DEFAULT 0.0,
+        holiday_country TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
@@ -96,6 +97,16 @@ function createTables() {
             console.error('Failed to migrate: error adding overtime_start_hours column to users:', err.message);
           } else {
             console.log('Successfully migrated users table: added overtime_start_hours column.');
+          }
+        });
+      }
+      const hasHolidayCountry = columns.some(col => col.name === 'holiday_country');
+      if (!hasHolidayCountry) {
+        db.run("ALTER TABLE users ADD COLUMN holiday_country TEXT", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding holiday_country column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added holiday_country column.');
           }
         });
       }
@@ -158,8 +169,8 @@ app.post('/api/sync', async (req, res) => {
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
@@ -168,6 +179,7 @@ app.post('/api/sync', async (req, res) => {
               language = excluded.language,
               overtime_start_date = excluded.overtime_start_date,
               overtime_start_hours = excluded.overtime_start_hours,
+              holiday_country = excluded.holiday_country,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
@@ -181,6 +193,7 @@ app.post('/api/sync', async (req, res) => {
             user.language || 'de',
             user.overtime_start_date || null,
             user.overtime_start_hours !== undefined ? user.overtime_start_hours : 0.0,
+            user.holiday_country || null,
             user.created_at,
             user.updated_at,
             user.deleted ? 1 : 0

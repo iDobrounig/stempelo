@@ -512,6 +512,54 @@ body {
   font-weight: 700;
 }
 
+/* Weekly Progress Card */
+.weekly-progress-card {
+  margin: 15px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.progress-subtitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.progress-bar-container {
+  background: var(--color-bg);
+  border: 1px solid var(--color-card-border);
+  height: 12px;
+  border-radius: 6px;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--color-accent) 0%, hsl(var(--hue-primary), 100%, 45%) 100%);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
+  width: 0%;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .overtime-card {
   margin: 15px;
   padding: 18px 20px;

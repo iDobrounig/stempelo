@@ -130,6 +130,17 @@
             </div>
           </div>
 
+          <!-- Weekly Progress Card -->
+          <div id="weekly-progress-card" class="weekly-progress-card glass">
+            <div class="progress-header">
+              <span class="progress-title" data-i18n="punch-weekly-progress-title">Wochenfortschritt</span>
+              <span class="progress-subtitle" id="weekly-progress-stats">0,00 / 0,00 Std. (0%)</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" id="weekly-progress-fill" style="width: 0%;"></div>
+            </div>
+          </div>
+
           <!-- Daily Overview Dashboard -->
           <div class="grid-stats">
             <div class="stat-card glass">
@@ -396,6 +407,22 @@
                     <input type="checkbox" id="set-user-notifications">
                     <span data-i18n="settings-label-notifications">Pausen-Erinnerungen per Push-Notification aktivieren</span>
                   </label>
+                </div>
+
+                <h4 class="settings-sub" data-i18n="settings-holiday-title">Feiertags-Import</h4>
+                <div class="form-group-row">
+                  <div class="form-group">
+                    <label for="set-holiday-country" data-i18n="settings-label-holiday-country">Land</label>
+                    <select id="set-holiday-country" class="custom-select">
+                      <option value="" data-i18n="settings-holiday-none">Kein automatischer Import</option>
+                      <option value="AT">Österreich (AT)</option>
+                      <option value="DE">Deutschland (DE)</option>
+                      <option value="CH">Schweiz (CH)</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="justify-content: flex-end;">
+                    <button type="button" id="btn-import-holidays" class="btn secondary" data-i18n="settings-btn-import-holidays" style="height: 48px; box-sizing: border-box;">Feiertage laden</button>
+                  </div>
                 </div>
 
                 <button type="submit" class="btn primary" data-i18n="settings-btn-save">Einstellungen speichern</button>
