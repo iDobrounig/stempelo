@@ -1858,6 +1858,42 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
   if (syncStatusTextEl) {
     syncStatusTextEl.textContent = serverUrl ? t('settings-sync-status-connected') : t('settings-sync-status-disconnected');
   }
+
+  updateStorageAudit();
+}
+
+/**
+ * Updates the storage usage and quota estimates using the StorageManager API.
+ */
+async function updateStorageAudit() {
+  const usageTextEl = document.getElementById('storage-usage-text');
+  const quotaTextEl = document.getElementById('storage-quota-text');
+  const barFillEl = document.getElementById('storage-bar-fill');
+
+  if (!usageTextEl || !quotaTextEl || !barFillEl) return;
+
+  if (navigator.storage && navigator.storage.estimate) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      
+      const usageMB = (estimate.usage / (1024 * 1024)).toFixed(2);
+      const quotaMB = (estimate.quota / (1024 * 1024)).toFixed(0);
+      const percent = estimate.quota > 0 ? ((estimate.usage / estimate.quota) * 100).toFixed(2) : '0.00';
+      
+      usageTextEl.textContent = `${usageMB} MB (${percent}%)`;
+      quotaTextEl.textContent = `${quotaMB} MB`;
+      barFillEl.style.width = estimate.usage > 0 ? `${Math.max(1, parseFloat(percent))}%` : '0%';
+    } catch (err) {
+      console.error('Error fetching storage estimate:', err);
+      usageTextEl.textContent = 'Error';
+      quotaTextEl.textContent = 'Error';
+      barFillEl.style.width = '0%';
+    }
+  } else {
+    usageTextEl.textContent = t('settings-storage-unsupported');
+    quotaTextEl.textContent = '–';
+    barFillEl.style.width = '0%';
+  }
 }
 
 // ----------------------------------------------------

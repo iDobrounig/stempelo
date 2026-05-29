@@ -11,6 +11,7 @@ The application is designed to be lightweight, utilizing modern web standards wi
 ```
 ├── assets/
 │   └── icon.png            # 512x512 App Icon (PWA)
+├── backups/                # Automated daily SQLite hot-backups (7-day rotation)
 ├── index.html              # App layout and dialog modals
 ├── index.css               # Premium styling (glassmorphism, dark & light mode)
 ├── app.js                  # Core application logic, IndexedDB adapter & timer
@@ -30,11 +31,15 @@ The application is designed to be lightweight, utilizing modern web standards wi
 ## ✨ Features
 
 - 👥 **Multi-User Capable & PIN Protection**: Switch users quickly with local PIN verification (SHA-256 hashed).
+- 📊 **Weekly Progress Visualization**: Premium progress bar on the dashboard tab showing net worked hours vs. weekly target hours (Soll), computed from Monday to Sunday using the `Temporal` API.
+- 📆 **Public Holiday Auto-Population (AT / DE / CH)**: Choose a holiday region in settings and fetch statutory public holidays for the current year from Nager.Date API (`date.nager.at`), automatically inserting them while preventing duplication.
 - 🕒 **Custom Daily Targets**: Define custom target hours (Soll) individually for each day of the week (Mon-Sun).
 - 🇦🇹 **Austrian Break Compliance (AZG § 11)**: If a user works more than 6 hours, the app automatically deducts the difference to reach the legally required 30-minute minimum break if it wasn't already logged manually.
 - 📝 **Audit Log**: Every manual entry, edit, or deletion generates a revision log for traceability. Deleted records are marked via *soft-delete* (`deleted = 1`).
-- 🔄 **Central Sync (Manual & Automatic)**: Data synchronization between IndexedDB (client) and SQLite (server). The sync runs automatically and silently in the background (upon app launch, after user actions like punching or editing, when network connectivity is restored, and periodically every 5 minutes) or can be triggered manually.
-- 💾 **Backup & Export**: Local data export as CSV or full JSON backup (import/export) directly from the settings tab.
+- 🔄 **Central Sync (Manual & Automatic)**: Data synchronization between IndexedDB (client) and SQLite (server) with bi-directional conflict resolution based on `updated_at`.
+- 💾 **Automated Daily Server Backups**: Secure hot-backups of the SQLite database (`VACUUM INTO`) created automatically once a day in `backups/` directory, maintaining a rolling list of the last 7 backups.
+- 📱 **IndexedDB Storage Audit**: Storage utilization section in Settings utilizing the browser's StorageManager API to display disk usage, quota, and percentage values with a responsive progress bar.
+- 📤 **Backup & Export**: Local data export as CSV (fully filter-aligned and Excel-compatible) or full JSON backup loading/saving.
 
 ---
 

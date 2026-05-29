@@ -446,6 +446,18 @@
                 <button id="btn-export-backup" class="btn secondary" data-i18n="settings-sync-btn-backup">Backup (JSON) laden/speichern</button>
               </div>
             </div>
+
+            <!-- Device Storage Audit -->
+            <div class="settings-card glass">
+              <h3 data-i18n="settings-storage-title">Lokaler Speicherplatz</h3>
+              <div class="storage-info-box">
+                <p><span data-i18n="settings-storage-usage-label">Verwendeter Speicher:</span> <strong id="storage-usage-text">Lade...</strong></p>
+                <p><span data-i18n="settings-storage-quota-label">Verfügbarer Speicher:</span> <span id="storage-quota-text">Lade...</span></p>
+                <div class="storage-bar-container">
+                  <div id="storage-bar-fill" class="storage-bar-fill" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </main>

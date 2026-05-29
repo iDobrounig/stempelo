@@ -909,6 +909,37 @@ body {
   gap: 10px;
 }
 
+.storage-info-box {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-card-border);
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storage-bar-container {
+  background: var(--color-card-border);
+  border: 1px solid var(--color-card-border);
+  height: 10px;
+  border-radius: 5px;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  margin-top: 8px;
+}
+
+.storage-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--color-accent) 0%, hsl(var(--hue-primary), 100%, 45%) 100%);
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
 /* Modals (Native Dialogs) */
 .glass-dialog {
   border: none;

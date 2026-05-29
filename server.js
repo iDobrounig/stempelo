@@ -3,6 +3,7 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 8055;
@@ -21,6 +22,7 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   } else {
     console.log('Connected to the SQLite database.');
     createTables();
+    scheduleDailyBackup();
   }
 });
 
@@ -296,6 +298,59 @@ app.post('/api/sync', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error during synchronization' });
   }
 });
+
+const BACKUP_DIR = path.join(__dirname, 'backups');
+
+function scheduleDailyBackup() {
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+
+  const runBackup = async () => {
+    try {
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const backupFile = path.join(BACKUP_DIR, `backup_${dateStr}.sqlite`);
+
+      if (fs.existsSync(backupFile)) {
+        return;
+      }
+
+      console.log(`Starting automated daily SQLite backup: backup_${dateStr}.sqlite`);
+      
+      const escapedPath = backupFile.replace(/'/g, "''");
+      await dbRun(`VACUUM INTO '${escapedPath}'`);
+      
+      console.log(`Backup successfully completed: backup_${dateStr}.sqlite`);
+
+      const files = fs.readdirSync(BACKUP_DIR);
+      const backupFiles = files
+        .filter(file => file.startsWith('backup_') && file.endsWith('.sqlite'))
+        .map(file => ({
+          name: file,
+          path: path.join(BACKUP_DIR, file),
+          time: fs.statSync(path.join(BACKUP_DIR, file)).mtime.getTime()
+        }))
+        .sort((a, b) => a.time - b.time);
+
+      if (backupFiles.length > 7) {
+        const toDelete = backupFiles.slice(0, backupFiles.length - 7);
+        for (const file of toDelete) {
+          fs.unlinkSync(file.path);
+          console.log(`Pruned old backup file: ${file.name}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error during automated daily backup:', error);
+    }
+  };
+
+  // Run on startup
+  runBackup();
+
+  // Run check hourly
+  setInterval(runBackup, 60 * 60 * 1000);
+}
 
 // Start Server
 app.listen(PORT, () => {

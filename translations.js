@@ -120,6 +120,12 @@ const translations = {
     'settings-sync-btn-backup': 'Backup (JSON) laden/speichern',
     'settings-label-language': 'Sprache',
 
+    // Local storage audit
+    'settings-storage-title': 'Lokaler Speicherplatz',
+    'settings-storage-usage-label': 'Verwendeter Speicher:',
+    'settings-storage-quota-label': 'Verfügbarer Speicher:',
+    'settings-storage-unsupported': 'Speicher-Audit wird von diesem Browser nicht unterstützt.',
+
     // Overtime Account
     'settings-overtime-title': 'Überstundenkonto',
     'settings-label-overtime-date': 'Startdatum (Berechnungsbasis)',
@@ -366,6 +372,12 @@ const translations = {
     'settings-sync-btn-csv': 'Export as CSV',
     'settings-sync-btn-backup': 'Load/Save Backup (JSON)',
     'settings-label-language': 'Language',
+
+    // Local storage audit
+    'settings-storage-title': 'Device Storage',
+    'settings-storage-usage-label': 'Used Storage:',
+    'settings-storage-quota-label': 'Available Storage:',
+    'settings-storage-unsupported': 'Storage audit is not supported by this browser.',
 
     // Overtime Account
     'settings-overtime-title': 'Overtime Account',
