@@ -140,6 +140,15 @@ const translations = {
     'settings-btn-add-break-rule': '+ Regel hinzufügen',
     'settings-break-custom-rules-empty': 'Keine benutzerdefinierten Regeln definiert.',
     'settings-holiday-sync-label': 'Automatisch im Hintergrund abgleichen',
+    'reports-btn-print': 'Monatsbericht (PDF) drucken',
+    'reports-chart-title': 'Arbeitszeit-Trend (Letzte 6 Monate)',
+    'reports-legend-soll': 'Soll-Stunden',
+    'reports-legend-ist': 'Ist-Stunden',
+    'reports-legend-saldo': 'Zeitsaldo (Monat)',
+    'print-title': 'Monatsarbeitszeitbericht',
+    'print-signature-employee': 'Unterschrift Mitarbeiter',
+    'print-signature-supervisor': 'Unterschrift Vorgesetzter',
+    'print-date': 'Datum',
 
     // Connection status
     'conn-status-online': 'Online',
@@ -434,6 +443,15 @@ const translations = {
     'settings-btn-add-break-rule': '+ Add Rule',
     'settings-break-custom-rules-empty': 'No custom break rules defined.',
     'settings-holiday-sync-label': 'Automatically sync in background',
+    'reports-btn-print': 'Print Monthly Report (PDF)',
+    'reports-chart-title': 'Work Time Trend (Last 6 Months)',
+    'reports-legend-soll': 'Target Hours',
+    'reports-legend-ist': 'Actual Hours',
+    'reports-legend-saldo': 'Monthly Balance',
+    'print-title': 'Monthly Timesheet Report',
+    'print-signature-employee': 'Employee Signature',
+    'print-signature-supervisor': 'Supervisor Signature',
+    'print-date': 'Date',
 
     // Connection status
     'conn-status-online': 'Online',

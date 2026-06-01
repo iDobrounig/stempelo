@@ -1667,6 +1667,18 @@ body {
   max-height: none;
 }
 
+/* Trend Chart container styles */
+.chart-container {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#trend-chart-svg {
+  min-width: 500px;
+}
+
 
 
 

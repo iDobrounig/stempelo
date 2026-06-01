@@ -1827,6 +1827,552 @@ async function updateReportsTab() {
       logContainer.appendChild(entry);
     });
   }
+
+  // Render trend chart for the last 6 months
+  await renderTrendChart();
+}
+
+/**
+ * Render visual trend chart (SVG-based) in the reports tab
+ */
+async function renderTrendChart() {
+  if (!currentUser) return;
+  const svg = document.getElementById('trend-chart-svg');
+  if (!svg) return;
+
+  const today = Temporal.Now.plainDateISO();
+  const months = [];
+  
+  // Last 6 months in chronological order
+  for (let i = 5; i >= 0; i--) {
+    const d = today.subtract({ months: i });
+    months.push({
+      year: d.year,
+      month: d.month,
+      start: d.with({ day: 1 }),
+      end: d.with({ day: d.daysInMonth })
+    });
+  }
+
+  const allPunches = await dbAdapter.getAll('punches');
+  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+
+  const allTimeOff = await dbAdapter.getAll('time_off');
+  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const chartData = [];
+
+  for (const m of months) {
+    let monthlySoll = 0;
+    let monthlyIst = 0;
+
+    let iter = m.start;
+    while (Temporal.PlainDate.compare(iter, m.end) <= 0) {
+      const dateStr = iter.toString();
+      const wday = iter.dayOfWeek;
+      const daySoll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+
+      const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
+      const dayTimeOff = userTimeOff.find(o => o.date === dateStr);
+
+      const stats = calculateDayDetails(daySoll, dayPunches, dayTimeOff);
+
+      monthlySoll += stats.sollHours;
+      monthlyIst += stats.istHours;
+
+      iter = iter.add({ days: 1 });
+    }
+
+    const monthlySaldo = monthlyIst - monthlySoll;
+    const lang = getLanguage();
+    const monthLabel = m.start.toLocaleString(lang, { month: 'short' });
+
+    chartData.push({
+      label: monthLabel,
+      soll: monthlySoll,
+      ist: monthlyIst,
+      saldo: monthlySaldo
+    });
+  }
+
+  // Scaling parameters for SVG (width: 600, height: 240)
+  // Margins: Left (hours) 45, Right (Zeitsaldo) 45, Top 25, Bottom 30
+  // Plotting area: X = 45 to 555 (width 510), Y = 25 to 210 (height 185)
+  const drawWidth = 510;
+  const drawHeight = 185;
+  const startX = 45;
+  const baselineY = 210;
+
+  let maxHoursVal = Math.max(...chartData.map(d => Math.max(d.soll, d.ist)));
+  if (maxHoursVal < 40) maxHoursVal = 40;
+  const roundedMax = Math.ceil(maxHoursVal / 20) * 20;
+
+  let maxSaldoVal = Math.max(...chartData.map(d => Math.abs(d.saldo)));
+  if (maxSaldoVal < 10) maxSaldoVal = 10;
+  const roundedMaxSaldo = Math.ceil(maxSaldoVal / 5) * 5;
+
+  let svgContent = '';
+
+  // Draw Horizontal Gridlines and Axes values
+  const gridSteps = 5;
+  for (let j = 0; j < gridSteps; j++) {
+    const ratio = j / (gridSteps - 1);
+    const y = baselineY - ratio * drawHeight;
+
+    // Gridline
+    svgContent += `
+      <line x1="45" y1="${y}" x2="555" y2="${y}" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1" ${j === 2 ? 'stroke-dasharray="3,3"' : ''} />
+    `;
+
+    // Left Y label (Soll/Ist)
+    const hoursLabelVal = Math.round(ratio * roundedMax);
+    svgContent += `
+      <text x="35" y="${y + 3}" text-anchor="end" font-size="9" fill="var(--color-text-muted)">${hoursLabelVal}h</text>
+    `;
+
+    // Right Y label (Zeitsaldo)
+    const saldoLabelVal = Math.round((ratio - 0.5) * 2 * roundedMaxSaldo);
+    const prefix = saldoLabelVal > 0 ? '+' : '';
+    svgContent += `
+      <text x="565" y="${y + 3}" text-anchor="start" font-size="9" fill="var(--color-danger)">${prefix}${saldoLabelVal}h</text>
+    `;
+  }
+
+  // Draw Columns (Bars)
+  const barWidth = 18;
+  const barGap = 4;
+  const colWidth = drawWidth / 6;
+  const linePoints = [];
+
+  for (let i = 0; i < 6; i++) {
+    const data = chartData[i];
+    const xCenter = startX + i * colWidth + colWidth / 2;
+
+    // X-axis label
+    svgContent += `
+      <text x="${xCenter}" y="230" text-anchor="middle" font-size="10" fill="var(--color-text-secondary)">${data.label}</text>
+    `;
+
+    // Soll Bar
+    const sollHeight = (data.soll / roundedMax) * drawHeight;
+    const sollY = baselineY - sollHeight;
+    svgContent += `
+      <rect x="${xCenter - barWidth - barGap/2}" y="${sollY}" width="${barWidth}" height="${sollHeight}" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1" rx="3" />
+    `;
+
+    // Ist Bar
+    const istHeight = (data.ist / roundedMax) * drawHeight;
+    const istY = baselineY - istHeight;
+    svgContent += `
+      <rect x="${xCenter + barGap/2}" y="${istY}" width="${barWidth}" height="${istHeight}" fill="var(--color-accent)" rx="3" />
+    `;
+
+    // Zeitsaldo Point
+    const saldoY = baselineY - ((data.saldo + roundedMaxSaldo) / (2 * roundedMaxSaldo)) * drawHeight;
+    linePoints.push({ x: xCenter, y: saldoY, value: data.saldo });
+  }
+
+  // Draw Zeitsaldo trend line path
+  const pathD = linePoints.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  svgContent += `
+    <path d="${pathD}" fill="none" stroke="var(--color-danger)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  `;
+
+  // Draw Zeitsaldo Dots & Labels
+  for (const p of linePoints) {
+    const prefix = p.value > 0 ? '+' : '';
+    const valText = `${prefix}${p.value.toFixed(1)}h`;
+    svgContent += `
+      <circle cx="${p.x}" cy="${p.y}" r="4.5" fill="var(--color-danger)" stroke="var(--color-bg)" stroke-width="2" />
+      <text x="${p.x}" y="${p.y - 10}" text-anchor="middle" font-size="9.5" font-weight="bold" fill="var(--color-danger)" style="text-shadow: 0 1px 2px var(--color-bg);">${valText}</text>
+    `;
+  }
+
+  svg.innerHTML = svgContent;
+}
+
+/**
+ * Print A4 Portrait Timesheet PDF for the selected month using browser print preview
+ */
+async function printMonthlyReport() {
+  if (!currentUser) return;
+
+  const periodSelect = document.getElementById('report-period-select');
+  const period = periodSelect.value;
+  
+  const today = Temporal.Now.plainDateISO();
+  let start;
+
+  if (period === 'current-week') {
+    const wday = today.dayOfWeek;
+    start = today.subtract({ days: wday - 1 });
+  } else if (period === 'current-month') {
+    start = today.with({ day: 1 });
+  } else if (period === 'last-month') {
+    const prevMonth = today.subtract({ months: 1 });
+    start = prevMonth.with({ day: 1 });
+  } else {
+    // All time or fallbacks: use oldest punch or current month
+    const allPunches = await dbAdapter.getAll('punches');
+    const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+    if (userPunches.length > 0) {
+      const oldestStr = userPunches.reduce((oldest, current) => 
+        current.start_time < oldest ? current.start_time : oldest
+      , userPunches[0].start_time).split('T')[0];
+      start = Temporal.PlainDate.from(oldestStr);
+    } else {
+      start = today.with({ day: 1 });
+    }
+  }
+
+  const monthStart = start.with({ day: 1 });
+  const monthEnd = start.with({ day: start.daysInMonth });
+  
+  const allPunches = await dbAdapter.getAll('punches');
+  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+
+  const allTimeOff = await dbAdapter.getAll('time_off');
+  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const lang = getLanguage();
+  
+  // Month Names translation
+  const monthNamesDe = [
+    'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+    'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
+  ];
+  const monthNamesEn = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const monthName = lang === 'de' ? monthNamesDe[monthStart.month - 1] : monthNamesEn[monthStart.month - 1];
+  const formattedMonthYear = `${monthName} ${monthStart.year}`;
+
+  let totalSoll = 0;
+  let totalIst = 0;
+  let totalBreakMin = 0;
+  let totalSaldo = 0;
+  let countVacation = 0;
+  let countSick = 0;
+  let countHoliday = 0;
+  let countCompensation = 0;
+
+  let tableRowsHtml = '';
+
+  let iter = monthStart;
+  while (Temporal.PlainDate.compare(iter, monthEnd) <= 0) {
+    const dateStr = iter.toString();
+    const wday = iter.dayOfWeek;
+    const isWeekend = wday === 6 || wday === 7;
+    const daySoll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+
+    const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
+    const dayTimeOff = userTimeOff.find(o => o.date === dateStr);
+
+    const stats = calculateDayDetails(daySoll, dayPunches, dayTimeOff);
+
+    totalSoll += stats.sollHours;
+    totalIst += stats.istHours;
+    totalBreakMin += stats.totalBreakMinutes;
+    totalSaldo += stats.saldoHours;
+
+    if (stats.timeOffType === 'vacation') countVacation++;
+    else if (stats.timeOffType === 'sick') countSick++;
+    else if (stats.timeOffType === 'holiday') countHoliday++;
+    else if (stats.timeOffType === 'compensation') countCompensation++;
+
+    let detailsText = '';
+    if (stats.timeOffType) {
+      if (stats.timeOffType === 'vacation') {
+        detailsText = lang === 'de' ? 'Urlaub' : 'Vacation';
+      } else if (stats.timeOffType === 'sick') {
+        detailsText = lang === 'de' ? 'Krank' : 'Sick';
+      } else if (stats.timeOffType === 'holiday') {
+        detailsText = lang === 'de' ? 'Feiertag' : 'Public Holiday';
+      } else if (stats.timeOffType === 'compensation') {
+        detailsText = lang === 'de' ? 'Zeitausgleich' : 'Compensation Time';
+      }
+    } else if (dayPunches.length > 0) {
+      detailsText = dayPunches
+        .sort((a, b) => a.start_time.localeCompare(b.start_time))
+        .map(p => {
+          const startPart = p.start_time.split('T')[1]?.substring(0, 5) || '';
+          const endPart = p.end_time ? p.end_time.split('T')[1]?.substring(0, 5) : '...';
+          return `${startPart}-${endPart}`;
+        })
+        .join(', ');
+    }
+
+    const formattedDate = iter.toLocaleString(lang, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const weekdayName = iter.toLocaleString(lang, { weekday: 'short' });
+
+    const formatH = (val) => val === 0 ? '' : val.toFixed(2);
+    const formatM = (min) => min === 0 ? '' : (min / 60).toFixed(2);
+    
+    let saldoText = '';
+    if (stats.saldoHours !== 0) {
+      const sign = stats.saldoHours > 0 ? '+' : '';
+      saldoText = `${sign}${stats.saldoHours.toFixed(2)}`;
+    }
+
+    const rowClass = isWeekend ? 'weekend' : '';
+
+    tableRowsHtml += `
+      <tr class="${rowClass}">
+        <td>${formattedDate} (${weekdayName})</td>
+        <td class="text-right">${formatH(stats.sollHours)}</td>
+        <td class="text-right">${formatH(stats.istHours)}</td>
+        <td class="text-right">${formatM(stats.totalBreakMinutes)}</td>
+        <td class="text-right" style="font-weight: ${stats.saldoHours !== 0 ? '600' : 'normal'};">${saldoText}</td>
+        <td>${detailsText}</td>
+      </tr>
+    `;
+
+    iter = iter.add({ days: 1 });
+  }
+
+  const totalFree = countVacation + countSick + countHoliday + countCompensation;
+  const freeBreakdown = lang === 'de'
+    ? `Urlaub: ${countVacation} | Krank: ${countSick} | Feiertag: ${countHoliday} | ZA: ${countCompensation}`
+    : `Vacation: ${countVacation} | Sick: ${countSick} | Holiday: ${countHoliday} | Comp: ${countCompensation}`;
+
+  const formatSaldo = (val) => {
+    const sign = val > 0 ? '+' : '';
+    return `${sign}${val.toFixed(2)}h`;
+  };
+
+  const printTitle = t('print-title');
+  const printEmpSig = t('print-signature-employee');
+  const printSupSig = t('print-signature-supervisor');
+  const printDateLabel = t('print-date');
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert(lang === 'de' ? 'Popup-Blocker verhindert das Drucken des Monatsberichts.' : 'Popup blocker is preventing printing the monthly report.');
+    return;
+  }
+
+  printWindow.document.write(`
+<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+  <meta charset="UTF-8">
+  <title>${printTitle} - ${currentUser.name} - ${formattedMonthYear}</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #333;
+      padding: 20px;
+      margin: 0;
+      background: white;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #111;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0 0 5px 0;
+      font-size: 18pt;
+      color: #111;
+    }
+    .app-logo {
+      font-size: 14pt;
+      font-weight: bold;
+      color: #00b894;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+      font-size: 10pt;
+    }
+    .meta-item strong {
+      color: #111;
+    }
+    .stats-summary {
+      display: flex;
+      gap: 15px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 10px 15px;
+      margin-bottom: 20px;
+    }
+    .stats-item {
+      flex: 1;
+    }
+    .stats-item-title {
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      color: #6c757d;
+      font-weight: 600;
+    }
+    .stats-item-val {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #212529;
+      margin-top: 2px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    tr {
+      page-break-inside: avoid;
+    }
+    thead {
+      display: table-header-group;
+    }
+    th {
+      background-color: #f1f3f5;
+      border: 1px solid #dee2e6;
+      padding: 6px 8px;
+      font-weight: 700;
+      font-size: 8.5pt;
+      text-align: left;
+    }
+    td {
+      border: 1px solid #dee2e6;
+      padding: 5px 8px;
+      font-size: 8.5pt;
+      text-align: left;
+    }
+    tr.weekend {
+      background-color: #f8f9fa;
+    }
+    tr.total-row {
+      font-weight: 700;
+      background-color: #e9ecef;
+    }
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 50px;
+      gap: 50px;
+      page-break-inside: avoid;
+    }
+    .signature-box {
+      flex: 1;
+      border-top: 1px solid #495057;
+      padding-top: 8px;
+      text-align: left;
+      font-size: 8.5pt;
+      color: #495057;
+    }
+    .signature-line {
+      height: 40px;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .text-center {
+      text-align: center;
+    }
+    @media print {
+      body {
+        padding: 0;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 1.5cm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>${printTitle}</h1>
+      <div style="font-size: 11pt; color: #495057;">${formattedMonthYear}</div>
+    </div>
+    <div class="app-logo">Stempelo</div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item">
+      <strong>${lang === 'de' ? 'Mitarbeiter' : 'Employee'}:</strong> ${currentUser.name}
+    </div>
+    <div class="meta-item" style="text-align: right;">
+      <strong>${lang === 'de' ? 'Erstellt am' : 'Created on'}:</strong> ${today.toLocaleString(lang, { day: '2-digit', month: '2-digit', year: 'numeric' })}
+    </div>
+  </div>
+
+  <div class="stats-summary">
+    <div class="stats-item">
+      <div class="stats-item-title">${lang === 'de' ? 'Soll Stunden' : 'Target Hours'}</div>
+      <div class="stats-item-val">${totalSoll.toFixed(2)}h</div>
+    </div>
+    <div class="stats-item">
+      <div class="stats-item-title">${lang === 'de' ? 'Ist Stunden' : 'Actual Hours'}</div>
+      <div class="stats-item-val">${totalIst.toFixed(2)}h</div>
+    </div>
+    <div class="stats-item">
+      <div class="stats-item-title">${lang === 'de' ? 'Zeitsaldo' : 'Time Balance'}</div>
+      <div class="stats-item-val">${formatSaldo(totalSaldo)}</div>
+    </div>
+    <div class="stats-item" style="flex: 1.5;">
+      <div class="stats-item-title">${lang === 'de' ? 'Urlaub & Absenzen' : 'Vacation & Absences'}</div>
+      <div class="stats-item-val" style="font-size: 9pt; font-weight: normal; margin-top: 4px;">
+        ${totalFree} ${lang === 'de' ? (totalFree === 1 ? 'Tag' : 'Tage') : (totalFree === 1 ? 'Day' : 'Days')}
+        <div style="font-size: 7.5pt; color: #6c757d; margin-top: 1px;">${freeBreakdown}</div>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">${lang === 'de' ? 'Datum (Wochentag)' : 'Date (Weekday)'}</th>
+        <th class="text-right" style="width: 12%;">${lang === 'de' ? 'Soll (h)' : 'Target (h)'}</th>
+        <th class="text-right" style="width: 12%;">${lang === 'de' ? 'Ist (h)' : 'Actual (h)'}</th>
+        <th class="text-right" style="width: 12%;">${lang === 'de' ? 'Pause (h)' : 'Break (h)'}</th>
+        <th class="text-right" style="width: 12%;">${lang === 'de' ? 'Saldo (h)' : 'Saldo (h)'}</th>
+        <th style="width: 27%;">${lang === 'de' ? 'Zeiten / Details' : 'Times / Details'}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRowsHtml}
+      <tr class="total-row">
+        <td>${lang === 'de' ? 'Gesamt' : 'Total'}</td>
+        <td class="text-right">${totalSoll.toFixed(2)}</td>
+        <td class="text-right">${totalIst.toFixed(2)}</td>
+        <td class="text-right">${(totalBreakMin / 60).toFixed(2)}</td>
+        <td class="text-right">${formatSaldo(totalSaldo)}</td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="signatures">
+    <div class="signature-box">
+      <div class="signature-line"></div>
+      <div>${printEmpSig} (${printDateLabel} / ${lang === 'de' ? 'Unterschrift' : 'Signature'})</div>
+    </div>
+    <div class="signature-box">
+      <div class="signature-line"></div>
+      <div>${printSupSig} (${printDateLabel} / ${lang === 'de' ? 'Unterschrift' : 'Signature'})</div>
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 300);
+    };
+  </script>
+</body>
+</html>
+  `);
+  printWindow.document.close();
 }
 
 function renderCustomBreakRules(rules) {
@@ -3052,6 +3598,10 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
 // Periodic Selection update reports
 document.getElementById('report-period-select').onchange = () => {
   updateReportsTab();
+};
+
+document.getElementById('btn-print-report').onclick = () => {
+  printMonthlyReport();
 };
 
 // Filter Bar event listeners for History tab
