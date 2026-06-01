@@ -119,6 +119,23 @@ const translations = {
     'settings-sync-btn-csv': 'Als CSV exportieren',
     'settings-sync-btn-backup': 'Backup (JSON) laden/speichern',
     'settings-label-language': 'Sprache',
+    'settings-label-theme': 'Design-Farbe',
+    'theme-color-cyan': 'Cyan (Standard)',
+    'theme-color-emerald': 'Smaragdgrün (Emerald)',
+    'theme-color-cobalt': 'Kobaltblau (Cobalt)',
+    'theme-color-amethyst': 'Amethyst-Violett (Amethyst)',
+    'theme-color-amber': 'Bernstein-Orange (Amber)',
+
+    // Connection status
+    'conn-status-online': 'Online',
+    'conn-status-offline': 'Offline',
+    'conn-status-syncing': 'Abgleich...',
+    'conn-status-pending': 'ausstehend',
+    'conn-status-no-server': 'Kein Server',
+    'conn-title-online': 'Online - Alle Daten synchronisiert',
+    'conn-title-offline': 'Offline - Keine Server-URL konfiguriert',
+    'conn-title-offline-no-conn': 'Offline - Keine Internetverbindung',
+    'conn-title-unsynced': '{pending} Änderungen warten auf Synchronisation',
 
     // Local storage audit
     'settings-storage-title': 'Lokaler Speicherplatz',
@@ -372,6 +389,23 @@ const translations = {
     'settings-sync-btn-csv': 'Export as CSV',
     'settings-sync-btn-backup': 'Load/Save Backup (JSON)',
     'settings-label-language': 'Language',
+    'settings-label-theme': 'Theme Color',
+    'theme-color-cyan': 'Cyan (Default)',
+    'theme-color-emerald': 'Emerald Green (Emerald)',
+    'theme-color-cobalt': 'Cobalt Blue (Cobalt)',
+    'theme-color-amethyst': 'Amethyst Violet (Amethyst)',
+    'theme-color-amber': 'Amber Orange (Amber)',
+
+    // Connection status
+    'conn-status-online': 'Online',
+    'conn-status-offline': 'Offline',
+    'conn-status-syncing': 'Syncing...',
+    'conn-status-pending': 'pending',
+    'conn-status-no-server': 'No Server',
+    'conn-title-online': 'Online - All data synchronized',
+    'conn-title-offline': 'Offline - No server URL configured',
+    'conn-title-offline-no-conn': 'Offline - No internet connection',
+    'conn-title-unsynced': '{pending} changes waiting for synchronization',
 
     // Local storage audit
     'settings-storage-title': 'Device Storage',

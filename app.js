@@ -1834,6 +1834,7 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
     document.getElementById('soll-sun').value = currentUser.daily_soll.sun || 0;
 
     document.getElementById('set-user-lang').value = currentUser.language || 'de';
+    document.getElementById('set-user-theme').value = currentUser.theme_color || 'cyan';
 
     document.getElementById('set-overtime-start-date').value = currentUser.overtime_start_date || '';
     document.getElementById('set-overtime-start-hours').value = currentUser.overtime_start_hours !== undefined ? currentUser.overtime_start_hours : 0.0;
@@ -1941,6 +1942,7 @@ function switchTab(tabId) {
 function lockApp() {
   currentUser = null;
   storageRemoveItem('session-expiry');
+  applyThemeColor('cyan');
   document.getElementById('main-screen').classList.add('hidden');
   document.getElementById('lock-screen').classList.add('active');
   populateUserSelect();
@@ -2238,6 +2240,7 @@ document.getElementById('form-create-user').onsubmit = async (e) => {
     name: name,
     pin: hashedPin,
     language: getLanguage() || 'de',
+    theme_color: 'cyan',
     weekly_hours: parseFloat(document.getElementById('new-soll-mon').value) * 5, // approximation or summary
     daily_soll: {
       mon: parseFloat(document.getElementById('new-soll-mon').value) || 0,
@@ -2249,6 +2252,7 @@ document.getElementById('form-create-user').onsubmit = async (e) => {
       sun: parseFloat(document.getElementById('new-soll-sun').value) || 0
     },
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     deleted: 0
   };
 
@@ -2291,6 +2295,14 @@ document.getElementById('pin-ok').onclick = async () => {
       } else {
         applyGlobalLanguage(getLanguage() || 'de');
       }
+
+      if (user.theme_color) {
+        applyThemeColor(user.theme_color);
+      } else {
+        applyThemeColor('cyan');
+      }
+
+      updateConnectionBadge();
       
       // Switch screen
       document.getElementById('lock-screen').classList.remove('active');
@@ -2676,9 +2688,11 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   const name = document.getElementById('set-user-name').value;
   const pin = document.getElementById('set-user-pin').value;
   const lang = document.getElementById('set-user-lang').value;
+  const theme = document.getElementById('set-user-theme').value;
 
   currentUser.name = name;
   currentUser.language = lang;
+  currentUser.theme_color = theme;
   if (pin && pin.length === 4) {
     currentUser.pin = await hashPIN(pin);
   }
@@ -2718,6 +2732,9 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   
   // Set the selected language globally
   applyGlobalLanguage(lang);
+
+  // Apply theme color
+  applyThemeColor(theme);
 
   alert(t('alert-settings-saved'));
   updateSettingsTab();
@@ -2810,7 +2827,14 @@ document.getElementById('set-user-lang').onchange = () => {
   applyGlobalLanguage(lang);
 };
 
+// Settings theme selection change preview
+document.getElementById('set-user-theme').onchange = () => {
+  const theme = document.getElementById('set-user-theme').value;
+  applyThemeColor(theme);
+};
+
 document.getElementById('btn-save-server-settings').onclick = async () => {
+  if (isSyncing) return;
   const saveBtn = document.getElementById('btn-save-server-settings');
   const serverUrl = document.getElementById('lock-sync-server-url').value.trim();
   
@@ -2823,6 +2847,9 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
   saveBtn.textContent = getLanguage() === 'de' ? 'Verbinde...' : 'Connecting...';
 
   SyncService.setServerUrl(serverUrl);
+
+  isSyncing = true;
+  updateConnectionBadge();
 
   try {
     if (!idb) {
@@ -2837,8 +2864,10 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
     console.error(error);
     alert(t('alert-connection-failed', { message: error.message }));
   } finally {
+    isSyncing = false;
     saveBtn.disabled = false;
     saveBtn.textContent = t('server-btn-save');
+    updateConnectionBadge();
   }
 };
 
@@ -2870,12 +2899,16 @@ document.getElementById('btn-export-csv').onclick = () => exportHistoryToCSV();
 
 // Sync triggers
 document.getElementById('btn-sync-now').onclick = async () => {
+  if (isSyncing) return;
   const syncBtn = document.getElementById('btn-sync-now');
   syncBtn.disabled = true;
   syncBtn.textContent = getLanguage() === 'de' ? 'Synchronisiere...' : 'Syncing...';
 
   const serverUrl = document.getElementById('sync-server-url').value;
   SyncService.setServerUrl(serverUrl);
+
+  isSyncing = true;
+  updateConnectionBadge();
 
   try {
     const res = await SyncService.sync(dbAdapter);
@@ -2885,9 +2918,11 @@ document.getElementById('btn-sync-now').onclick = async () => {
     console.error(error);
     alert(t('alert-sync-failed', { message: error.message }));
   } finally {
+    isSyncing = false;
     syncBtn.disabled = false;
     syncBtn.textContent = t('settings-sync-btn-now');
     updateSettingsTab();
+    updateConnectionBadge();
   }
 };
 
@@ -3025,6 +3060,84 @@ navItems.forEach(item => {
   };
 });
 
+// Theme Hue Mapping:
+// - cyan: 185 (default)
+// - emerald: 145
+// - cobalt: 215
+// - amethyst: 275
+// - amber: 35
+const THEME_HUES = {
+  cyan: 185,
+  emerald: 145,
+  cobalt: 215,
+  amethyst: 275,
+  amber: 35
+};
+
+function applyThemeColor(colorName) {
+  const hue = THEME_HUES[colorName] || THEME_HUES.cyan;
+  document.documentElement.style.setProperty('--hue-primary', hue);
+}
+
+// Get the count of pending (unsynced) changes
+async function getPendingSyncCount() {
+  if (!idb) return 0;
+  try {
+    const lastSync = SyncService.getLastSyncTime();
+    const changes = await dbAdapter.getUnsyncedChanges(lastSync);
+    return (changes.users?.length || 0) + (changes.punches?.length || 0) + (changes.time_off?.length || 0) + (changes.audit_logs?.length || 0);
+  } catch (err) {
+    console.error('Failed to get pending sync count:', err);
+    return 0;
+  }
+}
+
+// Update Connection Status Badge
+async function updateConnectionBadge() {
+  const badgeEl = document.getElementById('conn-status-badge');
+  const textEl = document.getElementById('conn-status-text');
+  if (!badgeEl || !textEl) return;
+
+  const serverUrl = SyncService.getServerUrl();
+  const isOnline = navigator.onLine;
+
+  // Reset classes
+  badgeEl.className = 'conn-status-badge';
+
+  if (isSyncing) {
+    badgeEl.classList.add('syncing');
+    textEl.textContent = t('conn-status-syncing');
+    badgeEl.setAttribute('title', t('conn-status-syncing'));
+    return;
+  }
+
+  if (!serverUrl) {
+    badgeEl.classList.add('offline');
+    textEl.textContent = t('conn-status-no-server');
+    badgeEl.setAttribute('title', t('conn-title-offline'));
+    return;
+  }
+
+  if (!isOnline) {
+    badgeEl.classList.add('offline');
+    textEl.textContent = t('conn-status-offline');
+    badgeEl.setAttribute('title', t('conn-title-offline-no-conn'));
+    return;
+  }
+
+  const pendingCount = await getPendingSyncCount();
+  if (pendingCount > 0) {
+    badgeEl.classList.add('unsynced');
+    const pendingText = t('conn-status-pending');
+    textEl.textContent = `${pendingCount} ${pendingText}`;
+    badgeEl.setAttribute('title', t('conn-title-unsynced', { pending: pendingCount }));
+  } else {
+    badgeEl.classList.add('online');
+    textEl.textContent = t('conn-status-online');
+    badgeEl.setAttribute('title', t('conn-title-online'));
+  }
+}
+
 // ----------------------------------------------------
 // 7.5 Background Sync Functions
 // ----------------------------------------------------
@@ -3037,9 +3150,14 @@ async function triggerSilentSync() {
   if (isSyncing) return;
   
   const serverUrl = SyncService.getServerUrl();
-  if (!serverUrl) return;
+  if (!serverUrl) {
+    updateConnectionBadge();
+    return;
+  }
 
   isSyncing = true;
+  updateConnectionBadge();
+
   try {
     const res = await SyncService.sync(dbAdapter);
     console.log(`Silent background sync success: ${res.appliedCount} updates imported.`);
@@ -3058,6 +3176,13 @@ async function triggerSilentSync() {
         currentUser = latestUser;
         const userNameEl = document.getElementById('current-user-name');
         if (userNameEl) userNameEl.textContent = currentUser.name;
+
+        // Apply theme color in case it was updated on another device
+        if (currentUser.theme_color) {
+          applyThemeColor(currentUser.theme_color);
+        } else {
+          applyThemeColor('cyan');
+        }
       }
       
       if (currentTab === 'tab-punch') {
@@ -3076,6 +3201,7 @@ async function triggerSilentSync() {
     console.warn('Silent background sync failed:', error.message);
   } finally {
     isSyncing = false;
+    updateConnectionBadge();
   }
 }
 
@@ -3083,6 +3209,12 @@ async function triggerSilentSync() {
 window.addEventListener('online', () => {
   console.log('Browser back online. Running background sync...');
   triggerSilentSync();
+});
+
+// Offline trigger
+window.addEventListener('offline', () => {
+  console.log('Browser went offline. Updating badge...');
+  updateConnectionBadge();
 });
 
 // Periodic sync (every 5 minutes)
@@ -3160,6 +3292,13 @@ async function initApp() {
       const user = users.find(u => u.id === lastUserId);
       if (user) {
         currentUser = user;
+        if (user.theme_color) {
+          applyThemeColor(user.theme_color);
+        } else {
+          applyThemeColor('cyan');
+        }
+        updateConnectionBadge();
+        
         document.getElementById('lock-screen').classList.remove('active');
         document.getElementById('main-screen').classList.remove('hidden');
         document.getElementById('current-user-name').textContent = user.name;
@@ -3236,6 +3375,9 @@ async function initApp() {
   if (!syncSuccess) {
     triggerSilentSync();
   }
+
+  // Initialize connection badge
+  updateConnectionBadge();
 
   // Register Service Worker for PWA
   if ('serviceWorker' in navigator) {

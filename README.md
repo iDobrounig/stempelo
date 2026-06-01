@@ -39,6 +39,8 @@ The application is designed to be lightweight, utilizing modern web standards wi
 - 🔄 **Central Sync (Manual & Automatic)**: Data synchronization between IndexedDB (client) and SQLite (server) with bi-directional conflict resolution based on `updated_at`.
 - 💾 **Automated Daily Server Backups**: Secure hot-backups of the SQLite database (`VACUUM INTO`) created automatically once a day in `backups/` directory, maintaining a rolling list of the last 7 backups.
 - 📱 **IndexedDB Storage Audit**: Storage utilization section in Settings utilizing the browser's StorageManager API to display disk usage, quota, and percentage values with a responsive progress bar.
+- 🎨 **Accent Color Themes**: User profile settings allow choosing custom UI theme accents (Cyan, Emerald Green, Cobalt Blue, Amethyst Violet, Amber Orange), modifying primary HSL hue variables in real-time.
+- 📡 **Header Connection Badge**: Real-time network and database status badge (Online, Offline, Syncing, Unsynced) in the header showing the current server URL state and pending local changes.
 - 📤 **Backup & Export**: Local data export as CSV (fully filter-aligned and Excel-compatible) or full JSON backup loading/saving.
 
 ---

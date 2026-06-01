@@ -96,7 +96,13 @@
       <header class="app-header glass">
         <div class="header-profile">
           <div class="profile-info">
-            <span class="profile-label" data-i18n="header-employee">Mitarbeiter</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="profile-label" data-i18n="header-employee">Mitarbeiter</span>
+              <div id="conn-status-badge" class="conn-status-badge online" title="Online - Alle Daten synchronisiert">
+                <span class="conn-status-dot"></span>
+                <span id="conn-status-text" class="conn-status-text">Online</span>
+              </div>
+            </div>
             <h2 id="current-user-name">Lade...</h2>
           </div>
         </div>
@@ -354,6 +360,16 @@
                   <select id="set-user-lang" class="custom-select">
                     <option value="de">Deutsch (DE)</option>
                     <option value="en">English (EN)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="set-user-theme" data-i18n="settings-label-theme">Design-Farbe</label>
+                  <select id="set-user-theme" class="custom-select">
+                    <option value="cyan" data-i18n="theme-color-cyan">Cyan (Standard)</option>
+                    <option value="emerald" data-i18n="theme-color-emerald">Smaragdgrün (Emerald)</option>
+                    <option value="cobalt" data-i18n="theme-color-cobalt">Kobaltblau (Cobalt)</option>
+                    <option value="amethyst" data-i18n="theme-color-amethyst">Amethyst-Violett (Amethyst)</option>
+                    <option value="amber" data-i18n="theme-color-amber">Bernstein-Orange (Amber)</option>
                   </select>
                 </div>
                 
