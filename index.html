@@ -342,162 +342,189 @@
 
         <!-- 2d. Tab Panel: Einstellungen -->
         <section id="tab-settings" class="tab-content">
-          <div class="settings-grid">
-            <!-- User configuration -->
-            <div class="settings-card glass">
-              <h3 data-i18n="settings-profile-title">Profil-Einstellungen</h3>
-              <form id="form-user-settings">
-                <div class="form-group">
-                  <label for="set-user-name" data-i18n="settings-label-name">Name</label>
-                  <input type="text" id="set-user-name" required>
-                </div>
-                <div class="form-group">
-                  <label for="set-user-pin" data-i18n="settings-label-pin">4-stellige PIN</label>
-                  <input type="password" id="set-user-pin" pattern="[0-9]{4}" data-i18n-placeholder="settings-placeholder-pin" placeholder="Unverändert lassen..." maxlength="4">
-                </div>
-                <div class="form-group">
-                  <label for="set-user-lang" data-i18n="settings-label-language">Sprache</label>
-                  <select id="set-user-lang" class="custom-select">
-                    <option value="de">Deutsch (DE)</option>
-                    <option value="en">English (EN)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="set-user-theme" data-i18n="settings-label-theme">Design-Farbe</label>
-                  <select id="set-user-theme" class="custom-select">
-                    <option value="cyan" data-i18n="theme-color-cyan">Cyan (Standard)</option>
-                    <option value="emerald" data-i18n="theme-color-emerald">Smaragdgrün (Emerald)</option>
-                    <option value="cobalt" data-i18n="theme-color-cobalt">Kobaltblau (Cobalt)</option>
-                    <option value="amethyst" data-i18n="theme-color-amethyst">Amethyst-Violett (Amethyst)</option>
-                    <option value="amber" data-i18n="theme-color-amber">Bernstein-Orange (Amber)</option>
-                  </select>
-                </div>
+          <form id="form-user-settings" style="display: contents;">
+            <div class="settings-grid">
+              
+              <!-- Left Column: Work & Profile Settings -->
+              <div class="settings-column">
                 
-                <h4 class="settings-sub" data-i18n="settings-target-hours">Individuelle Soll-Stunden pro Wochentag</h4>
-                <div class="soll-week-inputs">
-                  <div class="soll-day">
-                    <label for="soll-mon" data-i18n="weekday-mon">Mo</label>
-                    <input type="number" id="soll-mon" min="0" max="24" step="0.1" required>
+                <!-- Card 1: Profil-Einstellungen -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-profile-title">Profil-Einstellungen</h3>
+                  <div class="form-group">
+                    <label for="set-user-name" data-i18n="settings-label-name">Name</label>
+                    <input type="text" id="set-user-name" required>
                   </div>
-                  <div class="soll-day">
-                    <label for="soll-tue" data-i18n="weekday-tue">Di</label>
-                    <input type="number" id="soll-tue" min="0" max="24" step="0.1" required>
-                  </div>
-                  <div class="soll-day">
-                    <label for="soll-wed" data-i18n="weekday-wed">Mi</label>
-                    <input type="number" id="soll-wed" min="0" max="24" step="0.1" required>
-                  </div>
-                  <div class="soll-day">
-                    <label for="soll-thu" data-i18n="weekday-thu">Do</label>
-                    <input type="number" id="soll-thu" min="0" max="24" step="0.1" required>
-                  </div>
-                  <div class="soll-day">
-                    <label for="soll-fri" data-i18n="weekday-fri">Fr</label>
-                    <input type="number" id="soll-fri" min="0" max="24" step="0.1" required>
-                  </div>
-                  <div class="soll-day">
-                    <label for="soll-sat" data-i18n="weekday-sat">Sa</label>
-                    <input type="number" id="soll-sat" min="0" max="24" step="0.1" required>
-                  </div>
-                  <div class="soll-day">
-                    <label for="soll-sun" data-i18n="weekday-sun">So</label>
-                    <input type="number" id="soll-sun" min="0" max="24" step="0.1" required>
+                  <div class="form-group">
+                    <label for="set-user-pin" data-i18n="settings-label-pin">4-stellige PIN</label>
+                    <input type="password" id="set-user-pin" pattern="[0-9]{4}" data-i18n-placeholder="settings-placeholder-pin" placeholder="Unverändert lassen..." maxlength="4">
                   </div>
                 </div>
 
-                <h4 class="settings-sub" data-i18n="settings-overtime-title">Überstundenkonto</h4>
-                <div class="form-group-row">
-                  <div class="form-group">
-                    <label for="set-overtime-start-date" data-i18n="settings-label-overtime-date">Startdatum (Berechnungsbasis)</label>
-                    <input type="date" id="set-overtime-start-date">
-                  </div>
-                  <div class="form-group">
-                    <label for="set-overtime-start-hours" data-i18n="settings-label-overtime-hours">Start-Saldo (Stunden)</label>
-                    <input type="number" id="set-overtime-start-hours" step="0.1" value="0.0">
+                <!-- Card 2: Arbeitszeit & Soll-Stunden -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-workhours-title">Arbeitszeit & Soll-Stunden</h3>
+                  <h4 class="settings-sub" style="margin-top: 0;" data-i18n="settings-target-hours">Tägliches Arbeitssoll pro Wochentag</h4>
+                  <div class="soll-week-inputs">
+                    <div class="soll-day">
+                      <label for="soll-mon" data-i18n="weekday-mon">Mo</label>
+                      <input type="number" id="soll-mon" min="0" max="24" step="0.1" required>
+                    </div>
+                    <div class="soll-day">
+                      <label for="soll-tue" data-i18n="weekday-tue">Di</label>
+                      <input type="number" id="soll-tue" min="0" max="24" step="0.1" required>
+                    </div>
+                    <div class="soll-day">
+                      <label for="soll-wed" data-i18n="weekday-wed">Mi</label>
+                      <input type="number" id="soll-wed" min="0" max="24" step="0.1" required>
+                    </div>
+                    <div class="soll-day">
+                      <label for="soll-thu" data-i18n="weekday-thu">Do</label>
+                      <input type="number" id="soll-thu" min="0" max="24" step="0.1" required>
+                    </div>
+                    <div class="soll-day">
+                      <label for="soll-fri" data-i18n="weekday-fri">Fr</label>
+                      <input type="number" id="soll-fri" min="0" max="24" step="0.1" required>
+                    </div>
+                    <div class="soll-day">
+                      <label for="soll-sat" data-i18n="weekday-sat">Sa</label>
+                      <input type="number" id="soll-sat" min="0" max="24" step="0.1" required>
+                    </div>
+                    <div class="soll-day">
+                      <label for="soll-sun" data-i18n="weekday-sun">So</label>
+                      <input type="number" id="soll-sun" min="0" max="24" step="0.1" required>
+                    </div>
                   </div>
                 </div>
 
-                <h4 class="settings-sub" data-i18n="settings-notifications-title">Benachrichtigungen</h4>
-                <div class="form-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="set-user-notifications">
-                    <span data-i18n="settings-label-notifications">Pausen-Erinnerungen per Push-Notification aktivieren</span>
-                  </label>
+                <!-- Card 3: Überstundenkonto -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-overtime-title">Überstundenkonto</h3>
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="set-overtime-start-date" data-i18n="settings-label-overtime-date">Startdatum (Berechnungsbasis)</label>
+                      <input type="date" id="set-overtime-start-date">
+                    </div>
+                    <div class="form-group">
+                      <label for="set-overtime-start-hours" data-i18n="settings-label-overtime-hours">Start-Saldo (Stunden)</label>
+                      <input type="number" id="set-overtime-start-hours" step="0.1" value="0.0">
+                    </div>
+                  </div>
                 </div>
 
-                <h4 class="settings-sub" data-i18n="settings-holiday-title">Feiertags-Import</h4>
-                <div class="form-group-row">
+                <!-- Card 4: Erinnerungen & Feiertags-Import -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-reminders-holidays-title">Erinnerungen & Feiertags-Import</h3>
+                  <h4 class="settings-sub" style="margin-top: 0;" data-i18n="settings-notifications-title">Benachrichtigungen</h4>
                   <div class="form-group">
-                    <label for="set-holiday-country" data-i18n="settings-label-holiday-country">Land</label>
-                    <select id="set-holiday-country" class="custom-select">
-                      <option value="" data-i18n="settings-holiday-none">Kein automatischer Import</option>
-                      <option value="AT">Österreich (AT)</option>
-                      <option value="DE">Deutschland (DE)</option>
-                      <option value="CH">Schweiz (CH)</option>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="set-user-notifications">
+                      <span data-i18n="settings-label-notifications">Pausen-Erinnerungen per Push-Notification aktivieren</span>
+                    </label>
+                  </div>
+                  
+                  <h4 class="settings-sub" data-i18n="settings-holiday-title">Feiertags-Import</h4>
+                  <div class="form-group-row">
+                    <div class="form-group">
+                      <label for="set-holiday-country" data-i18n="settings-label-holiday-country">Land</label>
+                      <select id="set-holiday-country" class="custom-select">
+                        <option value="" data-i18n="settings-holiday-none">Kein automatischer Import</option>
+                        <option value="AT">Österreich (AT)</option>
+                        <option value="DE">Deutschland (DE)</option>
+                        <option value="CH">Schweiz (CH)</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="justify-content: flex-end;">
+                      <button type="button" id="btn-import-holidays" class="btn secondary" data-i18n="settings-btn-import-holidays" style="height: 48px; box-sizing: border-box;">Feiertage laden</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Save Actions Bar -->
+                <div class="settings-actions-card" style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                  <button type="submit" class="btn primary" data-i18n="settings-btn-save" style="width: 100%; max-width: 320px; height: 48px;">Einstellungen speichern</button>
+                </div>
+              </div>
+
+              <!-- Right Column: Appearance & Device Settings -->
+              <div class="settings-column">
+                
+                <!-- Card 5: Darstellung & Design -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-appearance-title">Darstellung & Design</h3>
+                  <div class="form-group">
+                    <label for="set-user-lang" data-i18n="settings-label-language">Sprache</label>
+                    <select id="set-user-lang" class="custom-select">
+                      <option value="de">Deutsch (DE)</option>
+                      <option value="en">English (EN)</option>
                     </select>
                   </div>
-                  <div class="form-group" style="justify-content: flex-end;">
-                    <button type="button" id="btn-import-holidays" class="btn secondary" data-i18n="settings-btn-import-holidays" style="height: 48px; box-sizing: border-box;">Feiertage laden</button>
+                  <div class="form-group">
+                    <label for="set-user-theme" data-i18n="settings-label-theme">Design-Farbe</label>
+                    <select id="set-user-theme" class="custom-select">
+                      <option value="cyan" data-i18n="theme-color-cyan">Cyan (Standard)</option>
+                      <option value="emerald" data-i18n="theme-color-emerald">Smaragdgrün (Emerald)</option>
+                      <option value="cobalt" data-i18n="theme-color-cobalt">Kobaltblau (Cobalt)</option>
+                      <option value="amethyst" data-i18n="theme-color-amethyst">Amethyst-Violett (Amethyst)</option>
+                      <option value="amber" data-i18n="theme-color-amber">Bernstein-Orange (Amber)</option>
+                    </select>
+                  </div>
+                  
+                  <h4 class="settings-sub" data-i18n="settings-darkmode-title">Automatischer Dark Mode (Scheduler)</h4>
+                  <div class="form-group">
+                    <label for="set-darkmode-mode" data-i18n="settings-darkmode-label-mode">Modus</label>
+                    <select id="set-darkmode-mode" class="custom-select">
+                      <option value="disabled" data-i18n="settings-darkmode-mode-disabled">Deaktiviert (Manuell)</option>
+                      <option value="custom" data-i18n="settings-darkmode-mode-custom">Benutzerdefinierte Zeiten</option>
+                      <option value="system" data-i18n="settings-darkmode-mode-system">System-Einstellung folgen</option>
+                    </select>
+                  </div>
+                  <div id="darkmode-custom-times" class="form-group-row hidden">
+                    <div class="form-group">
+                      <label for="set-darkmode-start" data-i18n="settings-darkmode-label-start">Startzeit (Dark Mode)</label>
+                      <input type="time" id="set-darkmode-start" value="20:00">
+                    </div>
+                    <div class="form-group">
+                      <label for="set-darkmode-end" data-i18n="settings-darkmode-label-end">Endzeit (Light Mode)</label>
+                      <input type="time" id="set-darkmode-end" value="07:00">
+                    </div>
                   </div>
                 </div>
 
-                <button type="submit" class="btn primary" data-i18n="settings-btn-save">Einstellungen speichern</button>
-              </form>
-            </div>
-
-            <!-- Server Sync Config -->
-            <div class="settings-card glass">
-              <h3 data-i18n="settings-sync-title">Synchronisation (Cloud / SQLite)</h3>
-              <div class="sync-status-box">
-                <p><span data-i18n="settings-sync-status-label">Status:</span> <strong id="sync-status-text" data-i18n="settings-sync-status-disconnected">Nicht verbunden</strong></p>
-                <p><span data-i18n="settings-sync-last-label">Letzter Abgleich:</span> <span id="sync-last-time" data-i18n="settings-sync-never">Nie</span></p>
-              </div>
-              <div class="form-group">
-                <label for="sync-server-url" data-i18n="settings-sync-label-server">Server URL</label>
-                <input type="url" id="sync-server-url" placeholder="http://localhost:8055">
-              </div>
-              <div class="sync-actions">
-                <button id="btn-sync-now" class="btn primary" data-i18n="settings-sync-btn-now">Jetzt abgleichen</button>
-                <button id="btn-export-csv" class="btn secondary" data-i18n="settings-sync-btn-csv">Als CSV exportieren</button>
-                <button id="btn-export-backup" class="btn secondary" data-i18n="settings-sync-btn-backup">Backup (JSON) laden/speichern</button>
-              </div>
-            </div>
-
-            <!-- Device Storage Audit -->
-            <div class="settings-card glass">
-              <h3 data-i18n="settings-storage-title">Lokaler Speicherplatz</h3>
-              <div class="storage-info-box">
-                <p><span data-i18n="settings-storage-usage-label">Verwendeter Speicher:</span> <strong id="storage-usage-text">Lade...</strong></p>
-                <p><span data-i18n="settings-storage-quota-label">Verfügbarer Speicher:</span> <span id="storage-quota-text">Lade...</span></p>
-                <div class="storage-bar-container">
-                  <div id="storage-bar-fill" class="storage-bar-fill" style="width: 0%;"></div>
+                <!-- Card 6: Cloud-Synchronisation -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-sync-title">Synchronisation (Cloud / SQLite)</h3>
+                  <div class="sync-status-box">
+                    <p><span data-i18n="settings-sync-status-label">Status:</span> <strong id="sync-status-text" data-i18n="settings-sync-status-disconnected">Nicht verbunden</strong></p>
+                    <p><span data-i18n="settings-sync-last-label">Letzter Abgleich:</span> <span id="sync-last-time" data-i18n="settings-sync-never">Nie</span></p>
+                  </div>
+                  <div class="form-group">
+                    <label for="sync-server-url" data-i18n="settings-sync-label-server">Server URL</label>
+                    <input type="url" id="sync-server-url" placeholder="http://localhost:8055">
+                  </div>
+                  <div class="sync-actions">
+                    <button type="button" id="btn-sync-now" class="btn primary" data-i18n="settings-sync-btn-now">Jetzt abgleichen</button>
+                    <button type="button" id="btn-export-csv" class="btn secondary" data-i18n="settings-sync-btn-csv">Als CSV exportieren</button>
+                    <button type="button" id="btn-export-backup" class="btn secondary" data-i18n="settings-sync-btn-backup">Backup (JSON) laden/speichern</button>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <!-- Dark Mode Scheduler -->
-            <div class="settings-card glass">
-              <h3 data-i18n="settings-darkmode-title">Automatischer Dark Mode (Scheduler)</h3>
-              <div class="form-group">
-                <label for="set-darkmode-mode" data-i18n="settings-darkmode-label-mode">Modus</label>
-                <select id="set-darkmode-mode" class="custom-select">
-                  <option value="disabled" data-i18n="settings-darkmode-mode-disabled">Deaktiviert (Manuell)</option>
-                  <option value="custom" data-i18n="settings-darkmode-mode-custom">Benutzerdefinierte Zeiten</option>
-                  <option value="system" data-i18n="settings-darkmode-mode-system">System-Einstellung folgen</option>
-                </select>
-              </div>
-              <div id="darkmode-custom-times" class="form-group-row hidden">
-                <div class="form-group">
-                  <label for="set-darkmode-start" data-i18n="settings-darkmode-label-start">Startzeit (Dark Mode)</label>
-                  <input type="time" id="set-darkmode-start" value="20:00">
+                <!-- Card 7: Lokaler Speicherplatz -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-storage-title">Lokaler Speicherplatz</h3>
+                  <div class="storage-info-box">
+                    <p><span data-i18n="settings-storage-usage-label">Verwendeter Speicher:</span> <strong id="storage-usage-text">Lade...</strong></p>
+                    <p><span data-i18n="settings-storage-quota-label">Verfügbarer Speicher:</span> <span id="storage-quota-text">Lade...</span></p>
+                    <div class="storage-bar-container">
+                      <div id="storage-bar-fill" class="storage-bar-fill" style="width: 0%;"></div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label for="set-darkmode-end" data-i18n="settings-darkmode-label-end">Endzeit (Light Mode)</label>
-                  <input type="time" id="set-darkmode-end" value="07:00">
-                </div>
+
               </div>
+
             </div>
-          </div>
+          </form>
         </section>
       </main>
 

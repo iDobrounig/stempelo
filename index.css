@@ -887,6 +887,12 @@ body {
   gap: 20px;
 }
 
+.settings-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .settings-card {
   padding: 25px;
   display: flex;
@@ -1244,7 +1250,7 @@ body {
 
   .settings-grid {
     display: grid;
-    grid-template-columns: 1.2fr 0.8fr;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
   }
 

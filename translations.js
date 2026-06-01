@@ -100,10 +100,13 @@ const translations = {
 
     // Tab Settings
     'settings-profile-title': 'Profil-Einstellungen',
+    'settings-appearance-title': 'Darstellung & Design',
+    'settings-workhours-title': 'Arbeitszeit & Soll-Stunden',
+    'settings-reminders-holidays-title': 'Erinnerungen & Feiertags-Import',
     'settings-label-name': 'Name',
     'settings-label-pin': '4-stellige PIN',
     'settings-placeholder-pin': 'Unverändert lassen...',
-    'settings-target-hours': 'Individuelle Soll-Stunden pro Wochentag',
+    'settings-target-hours': 'Tägliches Arbeitssoll pro Wochentag',
     'settings-btn-save': 'Einstellungen speichern',
     'settings-sync-title': 'Synchronisation (Cloud / SQLite)',
     'settings-sync-status': 'Status: <strong>{status}</strong>',
@@ -379,10 +382,13 @@ const translations = {
 
     // Tab Settings
     'settings-profile-title': 'Profile Settings',
+    'settings-appearance-title': 'Appearance & Design',
+    'settings-workhours-title': 'Work Schedule & Targets',
+    'settings-reminders-holidays-title': 'Reminders & Holiday Import',
     'settings-label-name': 'Name',
     'settings-label-pin': '4-digit PIN',
     'settings-placeholder-pin': 'Leave unchanged...',
-    'settings-target-hours': 'Individual target hours per weekday',
+    'settings-target-hours': 'Daily Target Hours per Weekday',
     'settings-btn-save': 'Save Settings',
     'settings-sync-title': 'Synchronization (Cloud / SQLite)',
     'settings-sync-status': 'Status: <strong>{status}</strong>',
