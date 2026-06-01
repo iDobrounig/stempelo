@@ -430,6 +430,7 @@ let currentTab = 'tab-punch';
 let timerInterval = null;
 let currentPinInput = '';
 let tempCustomRules = [];
+let tempActivities = [];
 
 // Calendar View State
 let historyViewMode = 'calendar'; // 'list' or 'calendar'
@@ -734,6 +735,16 @@ function formatHours(hours, formatType = 'decimal') {
   }
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ----------------------------------------------------
 // 5. DOM & Rendering Engines
 // ----------------------------------------------------
@@ -984,6 +995,51 @@ async function updatePunchTab() {
     btnBreakToggle.classList.add('hidden');
 
     document.getElementById('live-timer').textContent = '00:00:00';
+  }
+
+  // Populate and toggle punch activity select
+  const actSelectContainer = document.getElementById('punch-activity-select-container');
+  const actSelect = document.getElementById('punch-activity-select');
+  const activeActDisplay = document.getElementById('punch-active-activity');
+  const activeActNameEl = document.getElementById('punch-active-activity-name');
+
+  if (actSelectContainer && actSelect && activeActDisplay && activeActNameEl) {
+    const activities = currentUser.activities || [];
+    if (activities.length === 0) {
+      actSelectContainer.classList.add('hidden');
+      activeActDisplay.classList.add('hidden');
+    } else {
+      if (!stats.activePunch && storageGetItem(`user-break-active-${currentUser.id}`) !== 'true') {
+        // Stopped: show dropdown
+        actSelectContainer.classList.remove('hidden');
+        activeActDisplay.classList.add('hidden');
+        
+        const currentVal = actSelect.value;
+        let optHtml = `<option value="">-- ${t('punch-activity-none')} --</option>`;
+        activities.forEach(act => {
+          optHtml += `<option value="${escapeHtml(act)}">${escapeHtml(act)}</option>`;
+        });
+        actSelect.innerHTML = optHtml;
+        if (activities.includes(currentVal)) {
+          actSelect.value = currentVal;
+        }
+      } else {
+        // Active: show active project name
+        actSelectContainer.classList.add('hidden');
+        activeActDisplay.classList.remove('hidden');
+        
+        let activeActName = '';
+        if (stats.activePunch && stats.activePunch.activity) {
+          activeActName = stats.activePunch.activity;
+        } else if (storageGetItem(`user-break-active-${currentUser.id}`) === 'true') {
+          const sortedToday = [...todayPunches].sort((a,b) => b.start_time.localeCompare(a.start_time));
+          if (sortedToday.length > 0 && sortedToday[0].activity) {
+            activeActName = sortedToday[0].activity;
+          }
+        }
+        activeActNameEl.textContent = activeActName || t('punch-activity-none');
+      }
+    }
   }
 
   // Schedule or clear break notifications
@@ -1747,6 +1803,8 @@ async function updateReportsTab() {
   let countHoliday = 0;
   let countCompensation = 0;
 
+  const activityHoursMap = {};
+
   // Iterate over every day in range
   let iter = start;
   while (Temporal.PlainDate.compare(iter, end) <= 0) {
@@ -1766,6 +1824,28 @@ async function updateReportsTab() {
     else if (stats.timeOffType === 'sick') countSick++;
     else if (stats.timeOffType === 'holiday') countHoliday++;
     else if (stats.timeOffType === 'compensation') countCompensation++;
+
+    // Proportional breakdown by activity
+    if (dayPunches.length > 0 && stats.netHours > 0) {
+      const punchDurations = dayPunches.map(p => {
+        const pStart = Temporal.Instant.from(p.start_time);
+        const pEnd = p.end_time ? Temporal.Instant.from(p.end_time) : Temporal.Now.instant();
+        const pMinutes = pStart.until(pEnd, { largestUnit: 'minute' }).minutes;
+        return {
+          punch: p,
+          grossHours: pMinutes / 60
+        };
+      });
+
+      const totalDayGross = punchDurations.reduce((sum, item) => sum + item.grossHours, 0);
+      if (totalDayGross > 0) {
+        punchDurations.forEach(item => {
+          const punchNet = (item.grossHours / totalDayGross) * stats.netHours;
+          const act = item.punch.activity || '';
+          activityHoursMap[act] = (activityHoursMap[act] || 0) + punchNet;
+        });
+      }
+    }
 
     iter = iter.add({ days: 1 });
   }
@@ -1830,6 +1910,57 @@ async function updateReportsTab() {
 
   // Render trend chart for the last 6 months
   await renderTrendChart();
+
+  // Render activity breakdown list
+  renderActivityDistribution(activityHoursMap);
+}
+
+/**
+ * Render horizontal progress bars showing the distribution of work hours across activities
+ */
+function renderActivityDistribution(activityHoursMap) {
+  const container = document.getElementById('reports-activities-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const activities = Object.entries(activityHoursMap)
+    .map(([name, hours]) => ({ name, hours }))
+    .filter(a => a.hours > 0)
+    .sort((a, b) => b.hours - a.hours);
+
+  const totalWorked = activities.reduce((sum, a) => sum + a.hours, 0);
+
+  if (activities.length === 0) {
+    container.innerHTML = `
+      <p class="text-muted text-center" style="padding: 20px;" data-i18n="reports-activities-empty">
+        ${t('reports-activities-empty')}
+      </p>
+    `;
+    return;
+  }
+
+  activities.forEach(act => {
+    const pct = totalWorked > 0 ? Math.round((act.hours / totalWorked) * 100) : 0;
+    const nameText = act.name || t('reports-activity-unassigned');
+    const hoursText = formatHours(act.hours);
+
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.flexDirection = 'column';
+    row.style.gap = '6px';
+
+    row.innerHTML = `
+      <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600;">
+        <span style="color: var(--color-text-primary);">${escapeHtml(nameText)}</span>
+        <span style="color: var(--color-text-secondary);">${hoursText} (${pct}%)</span>
+      </div>
+      <div class="progress-bar-container" style="background-color: rgba(255,255,255,0.06); height: 8px; border-radius: 4px; overflow: hidden; width: 100%;">
+        <div class="progress-bar-fill" style="background-color: var(--color-accent); width: ${pct}%; height: 100%; border-radius: 4px;"></div>
+      </div>
+    `;
+
+    container.appendChild(row);
+  });
 }
 
 /**
@@ -2422,6 +2553,49 @@ function renderCustomBreakRules(rules) {
   translateDOM();
 }
 
+function renderSettingsActivities() {
+  const container = document.getElementById('settings-activities-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (tempActivities.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; color: var(--color-text-secondary); padding: 15px; font-size: 0.85rem;" data-i18n="settings-activities-empty">
+        ${t('settings-activities-empty')}
+      </div>
+    `;
+    return;
+  }
+
+  tempActivities.forEach((act, idx) => {
+    const item = document.createElement('div');
+    item.style.display = 'flex';
+    item.style.justifyContent = 'space-between';
+    item.style.alignItems = 'center';
+    item.style.padding = '8px 12px';
+    item.style.borderRadius = '8px';
+    item.style.backgroundColor = 'rgba(255,255,255,0.03)';
+    item.style.border = '1px solid var(--color-card-border)';
+
+    item.innerHTML = `
+      <span style="color: var(--color-text-primary); font-size: 0.95rem; font-weight: 500;">${escapeHtml(act)}</span>
+      <button type="button" class="btn secondary icon-btn btn-delete-activity" data-index="${idx}" style="height: 36px; width: 36px; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
+    `;
+    container.appendChild(item);
+  });
+
+  // Bind delete handlers
+  container.querySelectorAll('.btn-delete-activity').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.getAttribute('data-index'));
+      tempActivities.splice(idx, 1);
+      renderSettingsActivities();
+    };
+  });
+}
+
 /**
  * Load user settings fields
  */
@@ -2486,6 +2660,10 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
 
     // Load Automatic Holiday Sync settings
     document.getElementById('set-holiday-sync-active').checked = !!currentUser.holiday_sync_active;
+
+    // Load Activities
+    tempActivities = currentUser.activities ? [...currentUser.activities] : [];
+    renderSettingsActivities();
   }
 
   // Sync Info
@@ -2594,18 +2772,38 @@ function lockApp() {
 // 7. Event Handlers & Submissions
 // ----------------------------------------------------
 
-function addPunchRow(startVal = '', endVal = '') {
+function addPunchRow(startVal = '', endVal = '', activityVal = '') {
   const container = document.getElementById('punches-list-container');
   const row = document.createElement('div');
   row.className = 'punch-row';
+  row.style.display = 'flex';
+  row.style.flexDirection = 'column';
+  row.style.gap = '8px';
   
+  const activities = currentUser.activities || [];
+  let optionsHtml = `<option value="">-- ${t('punch-activity-none')} --</option>`;
+  activities.forEach(act => {
+    const selected = act === activityVal ? 'selected' : '';
+    optionsHtml += `<option value="${escapeHtml(act)}" ${selected}>${escapeHtml(act)}</option>`;
+  });
+
+  const displayStyle = activities.length === 0 ? 'display: none;' : 'width: 100%; display: flex; align-items: center; gap: 8px;';
+
   row.innerHTML = `
-    <div class="punch-row-inputs">
-      <input type="time" class="punch-row-start" value="${startVal}" required>
-      <span>bis</span>
-      <input type="time" class="punch-row-end" value="${endVal}">
+    <div style="display: flex; width: 100%; align-items: center; gap: 10px;">
+      <div class="punch-row-inputs">
+        <input type="time" class="punch-row-start" value="${startVal}" required>
+        <span>bis</span>
+        <input type="time" class="punch-row-end" value="${endVal}">
+      </div>
+      <button type="button" class="btn-remove-punch-row" title="Stempelung löschen">🗑️</button>
     </div>
-    <button type="button" class="btn-remove-punch-row" title="Stempelung löschen">🗑️</button>
+    <div class="punch-row-activity-container" style="${displayStyle}">
+      <span style="font-size: 0.8rem; font-weight: 600; color: var(--color-text-muted);">${t('history-edit-punch-activity')}</span>
+      <select class="punch-row-activity custom-select small" style="flex: 1;">
+        ${optionsHtml}
+      </select>
+    </div>
   `;
   
   const startInput = row.querySelector('.punch-row-start');
@@ -2879,7 +3077,7 @@ function showEditPunchDialog(dateStr, punches) {
   sortedPunches.forEach(p => {
     const startT = new Date(p.start_time).toTimeString().slice(0, 5);
     const endT = p.end_time ? new Date(p.end_time).toTimeString().slice(0, 5) : '';
-    addPunchRow(startT, endT);
+    addPunchRow(startT, endT, p.activity || '');
   });
 
   document.getElementById('btn-delete-punch').classList.remove('hidden');
@@ -2990,12 +3188,16 @@ document.getElementById('pin-ok').onclick = async () => {
 document.getElementById('btn-punch-in').onclick = async () => {
   if (!currentUser) return;
   
+  const activityEl = document.getElementById('punch-activity-select');
+  const activityVal = activityEl ? activityEl.value : '';
+  
   const punch = {
     id: crypto.randomUUID(),
     user_id: currentUser.id,
     start_time: new Date().toISOString(),
     end_time: null,
     manual_edit: 0,
+    activity: activityVal || null,
     created_at: new Date().toISOString(),
     deleted: 0
   };
@@ -3077,6 +3279,25 @@ function showAddManualPunchDialog(dateStr) {
   document.getElementById('manual-end-time').value = '16:00';
   document.getElementById('manual-break').value = '30';
   document.getElementById('btn-delete-punch').classList.add('hidden');
+
+  // Populate manual activity select dropdown
+  const manualActContainer = document.getElementById('manual-activity-select-container');
+  const manualActSelect = document.getElementById('manual-activity-select');
+  if (manualActContainer && manualActSelect) {
+    const activities = currentUser.activities || [];
+    if (activities.length === 0) {
+      manualActContainer.classList.add('hidden');
+    } else {
+      manualActContainer.classList.remove('hidden');
+      let optHtml = `<option value="">-- ${t('punch-activity-none')} --</option>`;
+      activities.forEach(act => {
+        optHtml += `<option value="${escapeHtml(act)}">${escapeHtml(act)}</option>`;
+      });
+      manualActSelect.innerHTML = optHtml;
+      manualActSelect.value = '';
+    }
+  }
+
   updateSinglePunchSummary();
   dlg.showModal();
   document.getElementById('btn-cancel-manual-punch')?.focus({ preventScroll: true });
@@ -3109,7 +3330,9 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
       const endVal = row.querySelector('.punch-row-end').value;
       if (!startVal) continue;
       
-      parsedRows.push({ startVal, endVal });
+      const activityVal = row.querySelector('.punch-row-activity')?.value || '';
+      
+      parsedRows.push({ startVal, endVal, activityVal });
     }
     
     // Sort rows chronologically by start time
@@ -3190,6 +3413,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
           start_time: startIso,
           end_time: endIso,
           manual_edit: 1,
+          activity: item.activityVal || null,
           created_at: new Date().toISOString(),
           deleted: 0
         });
@@ -3216,6 +3440,9 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
     const startStr = document.getElementById('manual-start-time').value;
     const endStr = document.getElementById('manual-end-time').value;
     const breakMinutes = parseInt(document.getElementById('manual-break').value) || 0;
+    
+    const activityEl = document.getElementById('manual-activity-select');
+    const activityVal = activityEl ? activityEl.value : '';
 
     const startIso = new Date(`${dateStr}T${startStr}:00`).toISOString();
     const endIso = endStr ? new Date(`${dateStr}T${endStr}:00`).toISOString() : null;
@@ -3234,6 +3461,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
         start_time: startIso,
         end_time: p1End,
         manual_edit: 1,
+        activity: activityVal || null,
         created_at: new Date().toISOString(),
         deleted: 0
       };
@@ -3247,6 +3475,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
         start_time: p2Start,
         end_time: endIso,
         manual_edit: 1,
+        activity: activityVal || null,
         created_at: new Date().toISOString(),
         deleted: 0
       };
@@ -3261,6 +3490,7 @@ document.getElementById('form-manual-punch').onsubmit = async (e) => {
         start_time: startIso,
         end_time: endIso,
         manual_edit: 1,
+        activity: activityVal || null,
         created_at: new Date().toISOString(),
         deleted: 0
       };
@@ -3398,6 +3628,9 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   // Save automatic holiday sync checkbox
   currentUser.holiday_sync_active = document.getElementById('set-holiday-sync-active').checked;
 
+  // Save Activities
+  currentUser.activities = [...tempActivities];
+
   if (notificationsEnabled && ('Notification' in window) && Notification.permission !== 'granted') {
     await requestNotificationPermission();
   } else if (!notificationsEnabled) {
@@ -3514,6 +3747,22 @@ document.getElementById('set-break-profile').onchange = () => {
 document.getElementById('btn-add-break-rule').onclick = () => {
   tempCustomRules.push({ threshold: 6.0, deduction: 30 });
   renderCustomBreakRules(tempCustomRules);
+};
+
+// Add activity button click
+document.getElementById('settings-activity-add').onclick = () => {
+  const input = document.getElementById('settings-activity-input');
+  if (!input) return;
+  const val = input.value.trim();
+  if (val) {
+    if (tempActivities.includes(val)) {
+      alert(t('alert-activity-duplicate'));
+      return;
+    }
+    tempActivities.push(val);
+    input.value = '';
+    renderSettingsActivities();
+  }
 };
 
 // Settings language selection change preview

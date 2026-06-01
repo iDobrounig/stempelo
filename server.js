@@ -64,6 +64,7 @@ function createTables() {
         break_profile TEXT DEFAULT 'austria',
         break_custom_rules TEXT DEFAULT '[]',
         holiday_sync_active INTEGER DEFAULT 0,
+        activities TEXT DEFAULT '[]',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
@@ -156,6 +157,16 @@ function createTables() {
           }
         });
       }
+      const hasActivities = columns.some(col => col.name === 'activities');
+      if (!hasActivities) {
+        db.run("ALTER TABLE users ADD COLUMN activities TEXT DEFAULT '[]'", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding activities column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added activities column.');
+          }
+        });
+      }
     });
 
     // 2. Punches Table (Work sessions)
@@ -166,11 +177,30 @@ function createTables() {
         start_time TEXT NOT NULL,
         end_time TEXT,
         manual_edit INTEGER DEFAULT 0,
+        activity TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
       )
     `);
+
+    // Check if migration is needed for punches table
+    db.all("PRAGMA table_info(punches)", (err, columns) => {
+      if (err) {
+        console.error('Error checking table info for punches:', err.message);
+        return;
+      }
+      const hasActivity = columns.some(col => col.name === 'activity');
+      if (!hasActivity) {
+        db.run("ALTER TABLE punches ADD COLUMN activity TEXT", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding activity column to punches:', err.message);
+          } else {
+            console.log('Successfully migrated punches table: added activity column.');
+          }
+        });
+      }
+    });
 
     // 3. Time Off Table (Vacation, sickness, etc.)
     await dbRun(`
@@ -215,8 +245,8 @@ app.post('/api/sync', async (req, res) => {
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, activities, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
@@ -230,6 +260,7 @@ app.post('/api/sync', async (req, res) => {
               break_profile = excluded.break_profile,
               break_custom_rules = excluded.break_custom_rules,
               holiday_sync_active = excluded.holiday_sync_active,
+              activities = excluded.activities,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
@@ -248,6 +279,7 @@ app.post('/api/sync', async (req, res) => {
             user.break_profile || 'austria',
             user.break_custom_rules ? (typeof user.break_custom_rules === 'string' ? user.break_custom_rules : JSON.stringify(user.break_custom_rules)) : '[]',
             user.holiday_sync_active ? 1 : 0,
+            user.activities ? (typeof user.activities === 'string' ? user.activities : JSON.stringify(user.activities)) : '[]',
             user.created_at,
             user.updated_at,
             user.deleted ? 1 : 0
@@ -259,18 +291,19 @@ app.post('/api/sync', async (req, res) => {
       if (changes.punches && changes.punches.length > 0) {
         for (const punch of changes.punches) {
           await dbRun(`
-            INSERT INTO punches (id, user_id, start_time, end_time, manual_edit, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO punches (id, user_id, start_time, end_time, manual_edit, activity, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               user_id = excluded.user_id,
               start_time = excluded.start_time,
               end_time = excluded.end_time,
               manual_edit = excluded.manual_edit,
+              activity = excluded.activity,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
             WHERE excluded.updated_at > punches.updated_at
-          `, [punch.id, punch.user_id, punch.start_time, punch.end_time, punch.manual_edit ? 1 : 0, punch.created_at, punch.updated_at, punch.deleted ? 1 : 0]);
+          `, [punch.id, punch.user_id, punch.start_time, punch.end_time, punch.manual_edit ? 1 : 0, punch.activity || null, punch.created_at, punch.updated_at, punch.deleted ? 1 : 0]);
         }
       }
 
@@ -317,6 +350,7 @@ app.post('/api/sync', async (req, res) => {
       daily_soll: JSON.parse(u.daily_soll),
       break_custom_rules: u.break_custom_rules ? JSON.parse(u.break_custom_rules) : [],
       holiday_sync_active: !!u.holiday_sync_active,
+      activities: u.activities ? JSON.parse(u.activities) : [],
       deleted: !!u.deleted
     }));
 

@@ -129,6 +129,18 @@
               <p id="punch-subtitle" data-i18n="punch-subtitle">Heutige Arbeitszeit</p>
             </div>
 
+            <!-- Optional Project/Activity Selection -->
+            <div id="punch-activity-select-container" class="form-group hidden" style="margin-top: 15px; margin-bottom: 5px; width: 100%; max-width: 320px; align-self: center;">
+              <label for="punch-activity-select" data-i18n="punch-activity-label" style="font-size: 0.8rem; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px;">Tätigkeit (Projekt/Aufgabe)</label>
+              <select id="punch-activity-select" class="custom-select" style="width: 100%; text-align: center; text-align-last: center;">
+                <!-- Populated dynamically in app.js -->
+              </select>
+            </div>
+            
+            <div id="punch-active-activity" class="hidden" style="font-size: 0.9rem; font-weight: 600; color: var(--color-accent); margin-top: -10px; margin-bottom: 10px;">
+              <span data-i18n="history-edit-punch-activity">Tätigkeit</span>: <span id="punch-active-activity-name"></span>
+            </div>
+
             <div class="punch-controls">
               <button id="btn-punch-in" class="btn primary large" data-i18n="punch-btn-in">Einstempeln</button>
               <button id="btn-punch-out" class="btn danger large hidden" data-i18n="punch-btn-out">Ausstempeln</button>
@@ -365,6 +377,14 @@
             </div>
           </div>
 
+          <!-- Activity Distribution Card -->
+          <div class="report-activities-card glass" style="margin-top: 20px; padding: 25px; display: flex; flex-direction: column; gap: 20px;">
+            <h4 data-i18n="reports-activities-title">Tätigkeits-Verteilung</h4>
+            <div id="reports-activities-list" style="display: flex; flex-direction: column; gap: 15px;">
+              <!-- Populated dynamically in app.js -->
+            </div>
+          </div>
+
           <!-- Audit Log Trail (History) -->
           <div class="audit-log-section">
             <h4 data-i18n="reports-audit-title">Änderungshistorie (Audit Log)</h4>
@@ -584,6 +604,20 @@
                   </div>
                 </div>
 
+                <!-- Card 9: Tätigkeiten & Projekte -->
+                <div class="settings-card glass" style="margin-top: 15px;">
+                  <h3 data-i18n="settings-activities-title">Tätigkeiten & Projekte</h3>
+                  <div class="form-group-row" style="display: flex; gap: 10px; align-items: flex-end; width: 100%;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                      <input type="text" id="settings-activity-input" data-i18n-placeholder="settings-activity-placeholder" placeholder="z.B. Kundensupport, Projekt A..." style="width: 100%;">
+                    </div>
+                    <button type="button" id="settings-activity-add" class="btn secondary" data-i18n="settings-activities-add-btn" style="height: 48px; min-width: 100px; padding: 0 15px; box-sizing: border-box;">+ Hinzufügen</button>
+                  </div>
+                  <div id="settings-activities-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 180px; overflow-y: auto;" class="scroller">
+                    <!-- Dynamic activity rows populated in app.js -->
+                  </div>
+                </div>
+
               </div>
 
             </div>
@@ -694,6 +728,12 @@
         <div class="form-group" style="margin-top: 10px;">
           <label for="manual-break" data-i18n="manual-label-break">Gestempelte Pause (in Minuten)</label>
           <input type="number" id="manual-break" min="0" max="1440" value="0">
+        </div>
+        <div class="form-group" style="margin-top: 10px;" id="manual-activity-select-container">
+          <label for="manual-activity-select" data-i18n="history-edit-punch-activity">Tätigkeit</label>
+          <select id="manual-activity-select" class="custom-select" style="width: 100%;">
+            <!-- Populated dynamically in app.js -->
+          </select>
         </div>
         <div id="single-punch-summary" style="margin-top: 12px; font-size: 0.85rem; padding: 10px 12px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-card-border); line-height: 1.4; display: none;">
           <!-- Dynamically populated summaries like: Arbeitszeit: X Std. | Pause: Y Min. -->

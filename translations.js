@@ -149,6 +149,16 @@ const translations = {
     'print-signature-employee': 'Unterschrift Mitarbeiter',
     'print-signature-supervisor': 'Unterschrift Vorgesetzter',
     'print-date': 'Datum',
+    'settings-activities-title': 'Tätigkeiten & Projekte',
+    'settings-activities-add-btn': '+ Hinzufügen',
+    'settings-activities-empty': 'Keine Tätigkeiten definiert. Lege Projekte oder Aufgaben an, um deine Arbeitszeit zu strukturieren.',
+    'settings-activity-placeholder': 'z.B. Kundensupport, Projekt A...',
+    'punch-activity-label': 'Tätigkeit (Projekt/Aufgabe)',
+    'punch-activity-none': 'Keine Angabe (Standard)',
+    'reports-activities-title': 'Tätigkeits-Verteilung',
+    'reports-activities-empty': 'Keine Tätigkeiten im ausgewählten Zeitraum erfasst.',
+    'reports-activity-unassigned': 'Nicht zugewiesen',
+    'history-edit-punch-activity': 'Tätigkeit',
 
     // Connection status
     'conn-status-online': 'Online',
@@ -281,6 +291,7 @@ const translations = {
     'alert-confirm-delete-absence': 'Möchtest du diese Abwesenheit löschen?',
     'alert-confirm-delete-all-punches': 'Du hast alle Stempelungen entfernt. Möchtest du die Arbeitszeiten für diesen Tag löschen?',
     'alert-confirm-delete-day': 'Möchtest du die Arbeitszeiten für diesen Tag wirklich löschen?',
+    'alert-activity-duplicate': 'Diese Tätigkeit existiert bereits.',
 
     // General Words
     'type-work': 'Arbeit',
@@ -452,6 +463,16 @@ const translations = {
     'print-signature-employee': 'Employee Signature',
     'print-signature-supervisor': 'Supervisor Signature',
     'print-date': 'Date',
+    'settings-activities-title': 'Activities & Projects',
+    'settings-activities-add-btn': '+ Add',
+    'settings-activities-empty': 'No activities defined. Create projects or tasks to structure your work hours.',
+    'settings-activity-placeholder': 'e.g. Client Support, Project A...',
+    'punch-activity-label': 'Activity (Project/Task)',
+    'punch-activity-none': 'Unassigned (Default)',
+    'reports-activities-title': 'Activity Distribution',
+    'reports-activities-empty': 'No activities logged in the selected period.',
+    'reports-activity-unassigned': 'Unassigned',
+    'history-edit-punch-activity': 'Activity',
 
     // Connection status
     'conn-status-online': 'Online',
@@ -584,6 +605,7 @@ const translations = {
     'alert-confirm-delete-absence': 'Do you want to delete this absence?',
     'alert-confirm-delete-all-punches': 'You removed all punches. Do you want to delete the work times for this day?',
     'alert-confirm-delete-day': 'Do you really want to delete the work times for this day?',
+    'alert-activity-duplicate': 'This activity already exists.',
 
     // General Words
     'type-work': 'Work',
