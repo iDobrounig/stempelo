@@ -850,6 +850,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 30px;
 }
 
 .audit-log-section h4 {
