@@ -61,6 +61,9 @@ function createTables() {
         overtime_start_hours REAL DEFAULT 0.0,
         holiday_country TEXT,
         theme_color TEXT DEFAULT 'cyan',
+        break_profile TEXT DEFAULT 'austria',
+        break_custom_rules TEXT DEFAULT '[]',
+        holiday_sync_active INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
@@ -123,6 +126,36 @@ function createTables() {
           }
         });
       }
+      const hasBreakProfile = columns.some(col => col.name === 'break_profile');
+      if (!hasBreakProfile) {
+        db.run("ALTER TABLE users ADD COLUMN break_profile TEXT DEFAULT 'austria'", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding break_profile column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added break_profile column.');
+          }
+        });
+      }
+      const hasBreakCustomRules = columns.some(col => col.name === 'break_custom_rules');
+      if (!hasBreakCustomRules) {
+        db.run("ALTER TABLE users ADD COLUMN break_custom_rules TEXT DEFAULT '[]'", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding break_custom_rules column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added break_custom_rules column.');
+          }
+        });
+      }
+      const hasHolidaySyncActive = columns.some(col => col.name === 'holiday_sync_active');
+      if (!hasHolidaySyncActive) {
+        db.run("ALTER TABLE users ADD COLUMN holiday_sync_active INTEGER DEFAULT 0", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding holiday_sync_active column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added holiday_sync_active column.');
+          }
+        });
+      }
     });
 
     // 2. Punches Table (Work sessions)
@@ -182,8 +215,8 @@ app.post('/api/sync', async (req, res) => {
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
@@ -194,6 +227,9 @@ app.post('/api/sync', async (req, res) => {
               overtime_start_hours = excluded.overtime_start_hours,
               holiday_country = excluded.holiday_country,
               theme_color = excluded.theme_color,
+              break_profile = excluded.break_profile,
+              break_custom_rules = excluded.break_custom_rules,
+              holiday_sync_active = excluded.holiday_sync_active,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
@@ -209,6 +245,9 @@ app.post('/api/sync', async (req, res) => {
             user.overtime_start_hours !== undefined ? user.overtime_start_hours : 0.0,
             user.holiday_country || null,
             user.theme_color || 'cyan',
+            user.break_profile || 'austria',
+            user.break_custom_rules ? (typeof user.break_custom_rules === 'string' ? user.break_custom_rules : JSON.stringify(user.break_custom_rules)) : '[]',
+            user.holiday_sync_active ? 1 : 0,
             user.created_at,
             user.updated_at,
             user.deleted ? 1 : 0
@@ -276,6 +315,8 @@ app.post('/api/sync', async (req, res) => {
     const responseUsers = updatedUsers.map(u => ({
       ...u,
       daily_soll: JSON.parse(u.daily_soll),
+      break_custom_rules: u.break_custom_rules ? JSON.parse(u.break_custom_rules) : [],
+      holiday_sync_active: !!u.holiday_sync_active,
       deleted: !!u.deleted
     }));
 

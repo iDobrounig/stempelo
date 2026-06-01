@@ -429,6 +429,7 @@ let currentUser = null;
 let currentTab = 'tab-punch';
 let timerInterval = null;
 let currentPinInput = '';
+let tempCustomRules = [];
 
 // Calendar View State
 let historyViewMode = 'calendar'; // 'list' or 'calendar'
@@ -484,15 +485,28 @@ function calculateDayDetails(targetSoll, punches, timeOffDay) {
 
   const grossHours = grossMinutes / 60;
   
-  // 2. Apply Austrian automatic break top-up (AZG § 11)
-  // If work hours > 6, total break must be at least 30 minutes.
+  // 2. Apply automatic break top-up based on user compliance break profile
+  let requiredMinBreak = 0;
+  const profile = currentUser.break_profile || 'austria';
+  if (profile === 'austria') {
+    if (grossHours > 6.0) requiredMinBreak = 30;
+  } else if (profile === 'germany') {
+    if (grossHours > 6.0 && grossHours <= 9.0) requiredMinBreak = 30;
+    else if (grossHours > 9.0) requiredMinBreak = 45;
+  } else if (profile === 'custom') {
+    const rules = currentUser.break_custom_rules || [];
+    const sortedRules = [...rules].sort((a, b) => b.threshold - a.threshold);
+    const matched = sortedRules.find(r => grossHours > r.threshold);
+    if (matched) requiredMinBreak = matched.deduction;
+  }
+
   let autoBreakMinutes = 0;
   let netHours = grossHours;
   let hasBreakAlert = false;
 
-  if (grossHours > 6.0) {
-    if (manualBreakMinutes < 30) {
-      autoBreakMinutes = 30 - manualBreakMinutes;
+  if (requiredMinBreak > 0) {
+    if (manualBreakMinutes < requiredMinBreak) {
+      autoBreakMinutes = requiredMinBreak - manualBreakMinutes;
       netHours = grossHours - (autoBreakMinutes / 60);
       hasBreakAlert = true;
     }
@@ -1815,6 +1829,53 @@ async function updateReportsTab() {
   }
 }
 
+function renderCustomBreakRules(rules) {
+  const container = document.getElementById('break-custom-rules-list');
+  if (!container) return;
+  container.innerHTML = '';
+  
+  if (!rules || rules.length === 0) {
+    container.innerHTML = `<p style="font-size: 0.85rem; color: var(--color-text-secondary);" data-i18n="settings-break-custom-rules-empty">Keine benutzerdefinierten Regeln definiert.</p>`;
+    translateDOM();
+    return;
+  }
+  
+  rules.forEach((rule, index) => {
+    const row = document.createElement('div');
+    row.className = 'break-rule-row';
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = '1fr 1fr auto';
+    row.style.gap = '10px';
+    row.style.alignItems = 'end';
+    
+    row.innerHTML = `
+      <div class="form-group" style="margin-bottom: 0;">
+        <label data-i18n="settings-break-custom-rule-threshold">Ab Arbeitszeit (Std.)</label>
+        <input type="number" class="custom-rule-threshold" min="0" max="24" step="0.1" value="${rule.threshold}" required>
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label data-i18n="settings-break-custom-rule-deduction">Abzug Pause (Min.)</label>
+        <input type="number" class="custom-rule-deduction" min="0" max="1440" step="1" value="${rule.deduction}" required>
+      </div>
+      <button type="button" class="btn secondary icon-btn btn-delete-break-rule" data-index="${index}" style="height: 48px; width: 48px; display: flex; align-items: center; justify-content: center;">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
+    `;
+    container.appendChild(row);
+  });
+  
+  // Bind delete handlers
+  container.querySelectorAll('.btn-delete-break-rule').forEach(btn => {
+    btn.onclick = () => {
+      const idx = parseInt(btn.getAttribute('data-index'));
+      rules.splice(idx, 1);
+      renderCustomBreakRules(rules);
+    };
+  });
+  
+  translateDOM();
+}
+
 /**
  * Load user settings fields
  */
@@ -1862,6 +1923,23 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
         customTimesEl.classList.add('hidden');
       }
     }
+
+    // Load Compliance and Break Profiles settings
+    const breakProfile = currentUser.break_profile || 'austria';
+    tempCustomRules = currentUser.break_custom_rules ? [...currentUser.break_custom_rules] : [];
+    
+    document.getElementById('set-break-profile').value = breakProfile;
+    
+    const breakRulesSection = document.getElementById('break-custom-rules-section');
+    if (breakProfile === 'custom') {
+      breakRulesSection.classList.remove('hidden');
+      renderCustomBreakRules(tempCustomRules);
+    } else {
+      breakRulesSection.classList.add('hidden');
+    }
+
+    // Load Automatic Holiday Sync settings
+    document.getElementById('set-holiday-sync-active').checked = !!currentUser.holiday_sync_active;
   }
 
   // Sync Info
@@ -2161,10 +2239,24 @@ function updateSinglePunchSummary() {
   const grossWorkMinutes = durationMinutes - breakMinutes;
   const grossWorkHours = grossWorkMinutes / 60;
 
-  // Austrian automatic break (AZG § 11)
+  // Dynamic automatic break calculation
+  let requiredMinBreak = 0;
+  const profile = currentUser.break_profile || 'austria';
+  if (profile === 'austria') {
+    if (grossWorkHours > 6.0) requiredMinBreak = 30;
+  } else if (profile === 'germany') {
+    if (grossWorkHours > 6.0 && grossWorkHours <= 9.0) requiredMinBreak = 30;
+    else if (grossWorkHours > 9.0) requiredMinBreak = 45;
+  } else if (profile === 'custom') {
+    const rules = currentUser.break_custom_rules || [];
+    const sortedRules = [...rules].sort((a, b) => b.threshold - a.threshold);
+    const matched = sortedRules.find(r => grossWorkHours > r.threshold);
+    if (matched) requiredMinBreak = matched.deduction;
+  }
+
   let autoBreakMinutes = 0;
-  if (grossWorkHours > 6.0 && breakMinutes < 30) {
-    autoBreakMinutes = 30 - breakMinutes;
+  if (requiredMinBreak > 0 && breakMinutes < requiredMinBreak) {
+    autoBreakMinutes = requiredMinBreak - breakMinutes;
   }
   const totalBreakMinutes = breakMinutes + autoBreakMinutes;
   const netMinutes = Math.max(0, durationMinutes - totalBreakMinutes);
@@ -2185,9 +2277,12 @@ function updateSinglePunchSummary() {
   `;
 
   if (autoBreakMinutes > 0) {
+    let lawLabel = 'AZG § 11';
+    if (profile === 'germany') lawLabel = 'ArbZG § 4';
+    else if (profile === 'custom') lawLabel = 'Custom';
     html += `
       <span style="color: var(--color-text-muted);">Gesetzl. Pausenabzug:</span>
-      <strong class="text-warning">+${autoBreakMinutes} Min. (AZG § 11)</strong>
+      <strong class="text-warning">+${autoBreakMinutes} Min. (${lawLabel})</strong>
     `;
   }
 
@@ -2329,6 +2424,7 @@ document.getElementById('pin-ok').onclick = async () => {
       
       const savedTab = storageGetItem('active-tab') || 'tab-punch';
       switchTab(savedTab);
+      syncHolidaysSilently();
     } else {
       resetPinEntry();
       const err = document.getElementById('pin-error');
@@ -2739,6 +2835,23 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   const holidayCountry = document.getElementById('set-holiday-country').value;
   currentUser.holiday_country = holidayCountry || null;
 
+  // Save compliance and break profiles settings
+  const breakProfile = document.getElementById('set-break-profile').value;
+  currentUser.break_profile = breakProfile;
+
+  const customRules = [];
+  const ruleRows = document.querySelectorAll('.break-rule-row');
+  ruleRows.forEach(row => {
+    const threshold = parseFloat(row.querySelector('.custom-rule-threshold').value) || 0;
+    const deduction = parseInt(row.querySelector('.custom-rule-deduction').value) || 0;
+    customRules.push({ threshold, deduction });
+  });
+  customRules.sort((a, b) => a.threshold - b.threshold);
+  currentUser.break_custom_rules = customRules;
+
+  // Save automatic holiday sync checkbox
+  currentUser.holiday_sync_active = document.getElementById('set-holiday-sync-active').checked;
+
   if (notificationsEnabled && ('Notification' in window) && Notification.permission !== 'granted') {
     await requestNotificationPermission();
   } else if (!notificationsEnabled) {
@@ -2837,6 +2950,24 @@ document.getElementById('user-select').onchange = async () => {
   if (user && user.language) {
     applyGlobalLanguage(user.language);
   }
+};
+
+// Settings Break Profile select change preview
+document.getElementById('set-break-profile').onchange = () => {
+  const profile = document.getElementById('set-break-profile').value;
+  const breakRulesSection = document.getElementById('break-custom-rules-section');
+  if (profile === 'custom') {
+    breakRulesSection.classList.remove('hidden');
+    renderCustomBreakRules(tempCustomRules);
+  } else {
+    breakRulesSection.classList.add('hidden');
+  }
+};
+
+// Add custom break rule button click
+document.getElementById('btn-add-break-rule').onclick = () => {
+  tempCustomRules.push({ threshold: 6.0, deduction: 30 });
+  renderCustomBreakRules(tempCustomRules);
 };
 
 // Settings language selection change preview
@@ -2972,6 +3103,57 @@ document.getElementById('btn-sync-now').onclick = async () => {
     updateConnectionBadge();
   }
 };
+
+async function syncHolidaysSilently() {
+  if (!currentUser || !currentUser.holiday_country || !currentUser.holiday_sync_active) return;
+  
+  const countryCode = currentUser.holiday_country;
+  const year = Temporal.Now.plainDateISO().year;
+  const url = `https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`;
+  
+  console.log(`Automatic background holiday sync started for ${countryCode} for year ${year}`);
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const holidays = await response.json();
+    
+    const allTimeOff = await dbAdapter.getAll('time_off');
+    const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id && o.deleted === 0);
+    
+    let count = 0;
+    for (const hol of holidays) {
+      if (hol.types && !hol.types.includes('Public')) {
+        continue;
+      }
+      const holDate = hol.date;
+      const exists = userTimeOff.some(o => o.date === holDate);
+      if (!exists) {
+        const off = {
+          id: crypto.randomUUID(),
+          user_id: currentUser.id,
+          date: holDate,
+          type: 'holiday',
+          created_at: new Date().toISOString(),
+          deleted: 0
+        };
+        await dbAdapter.put('time_off', off);
+        await dbAdapter.logAudit(currentUser.id, 'insert', 'time_off', off.id, null, off);
+        count++;
+      }
+    }
+    
+    if (count > 0) {
+      console.log(`Successfully auto-imported ${count} new public holidays for ${year}`);
+      updateHistoryTab();
+      if (currentTab === 'tab-punch') updatePunchTab();
+      triggerSilentSync();
+    } else {
+      console.log(`No new holidays to auto-import for ${year}`);
+    }
+  } catch (error) {
+    console.warn('Failed to auto-import holidays in background:', error);
+  }
+}
 
 document.getElementById('btn-import-holidays').onclick = async () => {
   if (!currentUser) return;
@@ -3423,6 +3605,7 @@ async function initApp() {
         switchTab(savedTab);
         autoLoggedIn = true;
         console.log(`Auto-logged in user: ${user.name}`);
+        syncHolidaysSilently();
       }
     }
   }
