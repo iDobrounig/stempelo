@@ -143,6 +143,15 @@ const translations = {
     'settings-storage-quota-label': 'Verfügbarer Speicher:',
     'settings-storage-unsupported': 'Speicher-Audit wird von diesem Browser nicht unterstützt.',
 
+    // Dark Mode Scheduler
+    'settings-darkmode-title': 'Automatischer Dark Mode (Scheduler)',
+    'settings-darkmode-label-mode': 'Modus',
+    'settings-darkmode-mode-disabled': 'Deaktiviert (Manuell)',
+    'settings-darkmode-mode-custom': 'Benutzerdefinierte Zeiten',
+    'settings-darkmode-mode-system': 'System-Einstellung folgen',
+    'settings-darkmode-label-start': 'Startzeit (Dark Mode)',
+    'settings-darkmode-label-end': 'Endzeit (Light Mode)',
+
     // Overtime Account
     'settings-overtime-title': 'Überstundenkonto',
     'settings-label-overtime-date': 'Startdatum (Berechnungsbasis)',
@@ -412,6 +421,15 @@ const translations = {
     'settings-storage-usage-label': 'Used Storage:',
     'settings-storage-quota-label': 'Available Storage:',
     'settings-storage-unsupported': 'Storage audit is not supported by this browser.',
+
+    // Dark Mode Scheduler
+    'settings-darkmode-title': 'Automatic Dark Mode (Scheduler)',
+    'settings-darkmode-label-mode': 'Mode',
+    'settings-darkmode-mode-disabled': 'Disabled (Manual)',
+    'settings-darkmode-mode-custom': 'Custom Schedule',
+    'settings-darkmode-mode-system': 'Follow System Preference',
+    'settings-darkmode-label-start': 'Start Time (Dark Mode)',
+    'settings-darkmode-label-end': 'End Time (Light Mode)',
 
     // Overtime Account
     'settings-overtime-title': 'Overtime Account',

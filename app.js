@@ -139,7 +139,7 @@ const dbAdapter = {
     }
 
     // Merge/sync with localStorage for known keys
-    const keys = ['sync-server-url', 'sync-last-time', 'last-logged-user-id', 'color-scheme', 'session-expiry', 'active-tab', 'language'];
+    const keys = ['sync-server-url', 'sync-last-time', 'last-logged-user-id', 'color-scheme', 'session-expiry', 'active-tab', 'language', 'darkmode-mode', 'darkmode-start', 'darkmode-end'];
     
     // Also sync user-break-* keys if they exist in IndexedDB or localStorage
     Object.keys(SyncService.configCache).forEach(key => {
@@ -1844,6 +1844,24 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
 
     const serverUrl = SyncService.getServerUrl();
     document.getElementById('sync-server-url').value = serverUrl;
+
+    // Load Dark Mode Scheduler settings
+    const dmMode = storageGetItem('darkmode-mode') || 'disabled';
+    const dmStart = storageGetItem('darkmode-start') || '20:00';
+    const dmEnd = storageGetItem('darkmode-end') || '07:00';
+    
+    document.getElementById('set-darkmode-mode').value = dmMode;
+    document.getElementById('set-darkmode-start').value = dmStart;
+    document.getElementById('set-darkmode-end').value = dmEnd;
+
+    const customTimesEl = document.getElementById('darkmode-custom-times');
+    if (customTimesEl) {
+      if (dmMode === 'custom') {
+        customTimesEl.classList.remove('hidden');
+      } else {
+        customTimesEl.classList.add('hidden');
+      }
+    }
   }
 
   // Sync Info
@@ -2833,6 +2851,35 @@ document.getElementById('set-user-theme').onchange = () => {
   applyThemeColor(theme);
 };
 
+// Settings Dark Mode Scheduler change preview
+document.getElementById('set-darkmode-mode').onchange = () => {
+  const mode = document.getElementById('set-darkmode-mode').value;
+  storageSetItem('darkmode-mode', mode);
+  
+  const customTimesEl = document.getElementById('darkmode-custom-times');
+  if (customTimesEl) {
+    if (mode === 'custom') {
+      customTimesEl.classList.remove('hidden');
+    } else {
+      customTimesEl.classList.add('hidden');
+    }
+  }
+  
+  applyDarkModeSettings();
+};
+
+document.getElementById('set-darkmode-start').onchange = () => {
+  const start = document.getElementById('set-darkmode-start').value;
+  storageSetItem('darkmode-start', start);
+  applyDarkModeSettings();
+};
+
+document.getElementById('set-darkmode-end').onchange = () => {
+  const end = document.getElementById('set-darkmode-end').value;
+  storageSetItem('darkmode-end', end);
+  applyDarkModeSettings();
+};
+
 document.getElementById('btn-save-server-settings').onclick = async () => {
   if (isSyncing) return;
   const saveBtn = document.getElementById('btn-save-server-settings');
@@ -3038,11 +3085,68 @@ document.getElementById('btn-copy-backup-action').onclick = () => {
   alert(t('alert-backup-copied'));
 };
 
+function applyDarkModeSettings() {
+  const mode = storageGetItem('darkmode-mode') || 'disabled';
+  
+  if (mode === 'system') {
+    const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const targetTheme = isSystemDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', targetTheme);
+    document.documentElement.style.colorScheme = targetTheme;
+    storageSetItem('color-scheme', targetTheme);
+  } else if (mode === 'custom') {
+    const startStr = storageGetItem('darkmode-start') || '20:00';
+    const endStr = storageGetItem('darkmode-end') || '07:00';
+    
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    const [startH, startM] = startStr.split(':').map(Number);
+    const [endH, endM] = endStr.split(':').map(Number);
+    
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    
+    let isDark = false;
+    if (startMinutes < endMinutes) {
+      isDark = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    } else {
+      isDark = currentMinutes >= startMinutes || currentMinutes < endMinutes;
+    }
+    
+    const targetTheme = isDark ? 'dark' : 'light';
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (targetTheme !== currentTheme) {
+      document.documentElement.setAttribute('data-theme', targetTheme);
+      document.documentElement.style.colorScheme = targetTheme;
+      storageSetItem('color-scheme', targetTheme);
+    }
+  } else {
+    // manual mode, apply the saved color-scheme preference
+    const staticTheme = storageGetItem('color-scheme') || 'dark';
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    if (staticTheme !== currentTheme) {
+      document.documentElement.setAttribute('data-theme', staticTheme);
+      document.documentElement.style.colorScheme = staticTheme;
+    }
+  }
+}
+
 // Theme Toggle
 document.getElementById('btn-theme-toggle').onclick = () => {
   const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
   
+  // If automatic scheduler is active, manual toggle resets it to disabled
+  const mode = storageGetItem('darkmode-mode') || 'disabled';
+  if (mode !== 'disabled') {
+    storageSetItem('darkmode-mode', 'disabled');
+    const selectEl = document.getElementById('set-darkmode-mode');
+    if (selectEl) selectEl.value = 'disabled';
+    const customTimesEl = document.getElementById('darkmode-custom-times');
+    if (customTimesEl) customTimesEl.classList.add('hidden');
+  }
+
   document.documentElement.setAttribute('data-theme', newTheme);
   document.documentElement.style.colorScheme = newTheme;
   storageSetItem('color-scheme', newTheme);
@@ -3236,6 +3340,20 @@ window.addEventListener('focus', () => {
   triggerSilentSync();
 });
 
+// System prefers-color-scheme listener for Auto-Dark Mode
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (storageGetItem('darkmode-mode') === 'system') {
+    applyDarkModeSettings();
+  }
+});
+
+// Periodic check for Custom Dark Mode Scheduler (every 60 seconds)
+setInterval(() => {
+  if (storageGetItem('darkmode-mode') === 'custom') {
+    applyDarkModeSettings();
+  }
+}, 60 * 1000);
+
 // ----------------------------------------------------
 // 8. Initialization & Service Worker
 // ----------------------------------------------------
@@ -3269,10 +3387,8 @@ async function initApp() {
     // Load config from IndexedDB config store and merge with localStorage
     await dbAdapter.loadConfig();
 
-    // Apply color theme (in case it was restored from IndexedDB)
-    const colorScheme = storageGetItem('color-scheme') || 'dark';
-    document.documentElement.setAttribute('data-theme', colorScheme);
-    document.documentElement.style.colorScheme = colorScheme;
+    // Apply color theme and scheduler settings
+    applyDarkModeSettings();
   }
 
   // Apply language setting
