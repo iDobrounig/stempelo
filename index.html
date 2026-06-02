@@ -618,6 +618,31 @@
                   </div>
                 </div>
 
+                <!-- Card 10: REST API-Zugriff -->
+                <div class="settings-card glass" style="margin-top: 15px;">
+                  <h3 data-i18n="settings-api-title">REST API-Zugriff</h3>
+                  <div class="form-group">
+                    <label for="settings-api-token" data-i18n="settings-api-token-label">API-Token</label>
+                    <div style="display: flex; gap: 8px;">
+                      <input type="text" id="settings-api-token" readonly placeholder="Generiere einen API-Token..." style="flex: 1; text-overflow: ellipsis;" data-i18n-placeholder="settings-api-placeholder-token">
+                      <button type="button" id="btn-api-copy" class="btn secondary" style="width: 48px; height: 48px; padding: 0; display: flex; align-items: center; justify-content: center;" title="Kopieren">📋</button>
+                    </div>
+                  </div>
+                  <div class="sync-actions" style="margin-top: 10px;">
+                    <button type="button" id="btn-api-generate" class="btn primary" data-i18n="settings-api-btn-generate">Token generieren</button>
+                    <button type="button" id="btn-api-revoke" class="btn secondary" data-i18n="settings-api-btn-revoke">Löschen</button>
+                  </div>
+                  <div id="settings-api-info-section" class="hidden" style="margin-top: 15px; font-size: 0.85rem; padding: 12px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--color-card-border); line-height: 1.4; display: flex; flex-direction: column; gap: 8px;">
+                    <div>
+                      <span style="font-weight: 600; color: var(--color-text-secondary);" data-i18n="settings-api-endpoint-label">Punches Endpunkt:</span>
+                      <div class="scroller" style="background-color: rgba(0,0,0,0.2); padding: 6px 8px; border-radius: 4px; font-family: monospace; font-size: 0.75rem; word-break: break-all; margin-top: 4px; user-select: all; max-height: 80px; overflow-y: auto;" id="settings-api-endpoint-url"></div>
+                    </div>
+                    <div style="color: var(--color-text-muted);" data-i18n="settings-api-info-text">
+                      Verwende diesen Token im Authorization-Header (Bearer &lt;Token&gt;) oder als Query-Parameter (?token=&lt;Token&gt;).
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
             </div>

@@ -447,6 +447,12 @@ async function hashPIN(pin) {
   return hashHex;
 }
 
+function generateSecureToken() {
+  const array = new Uint8Array(16);
+  window.crypto.getRandomValues(array);
+  return 'stempelo_tkn_' + Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ----------------------------------------------------
 // 4. Time Calculation & Compliance (AT Rules)
 // ----------------------------------------------------
@@ -2664,6 +2670,27 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
     // Load Activities
     tempActivities = currentUser.activities ? [...currentUser.activities] : [];
     renderSettingsActivities();
+
+    // Load API token settings
+    const token = currentUser.api_token || '';
+    const tokenInput = document.getElementById('settings-api-token');
+    const apiInfoSection = document.getElementById('settings-api-info-section');
+    const endpointUrlEl = document.getElementById('settings-api-endpoint-url');
+    
+    if (tokenInput && apiInfoSection && endpointUrlEl) {
+      tokenInput.value = token;
+      if (token) {
+        apiInfoSection.classList.remove('hidden');
+        let currentServerUrl = SyncService.getServerUrl() || window.location.origin;
+        if (currentServerUrl.endsWith('/')) {
+          currentServerUrl = currentServerUrl.slice(0, -1);
+        }
+        endpointUrlEl.textContent = `${currentServerUrl}/api/v1/punches`;
+      } else {
+        apiInfoSection.classList.add('hidden');
+        endpointUrlEl.textContent = '';
+      }
+    }
   }
 
   // Sync Info
@@ -3762,6 +3789,61 @@ document.getElementById('settings-activity-add').onclick = () => {
     tempActivities.push(val);
     input.value = '';
     renderSettingsActivities();
+  }
+};
+
+// REST API Token actions
+document.getElementById('btn-api-generate').onclick = async () => {
+  if (!currentUser) return;
+  const token = generateSecureToken();
+  currentUser.api_token = token;
+  await dbAdapter.put('users', currentUser);
+  
+  const tokenInput = document.getElementById('settings-api-token');
+  const apiInfoSection = document.getElementById('settings-api-info-section');
+  const endpointUrlEl = document.getElementById('settings-api-endpoint-url');
+  
+  if (tokenInput && apiInfoSection && endpointUrlEl) {
+    tokenInput.value = token;
+    apiInfoSection.classList.remove('hidden');
+    let currentServerUrl = SyncService.getServerUrl() || window.location.origin;
+    if (currentServerUrl.endsWith('/')) {
+      currentServerUrl = currentServerUrl.slice(0, -1);
+    }
+    endpointUrlEl.textContent = `${currentServerUrl}/api/v1/punches`;
+  }
+  
+  triggerSilentSync();
+};
+
+document.getElementById('btn-api-revoke').onclick = async () => {
+  if (!currentUser) return;
+  if (confirm(t('alert-api-token-revoke-confirm'))) {
+    currentUser.api_token = null;
+    await dbAdapter.put('users', currentUser);
+    
+    const tokenInput = document.getElementById('settings-api-token');
+    const apiInfoSection = document.getElementById('settings-api-info-section');
+    const endpointUrlEl = document.getElementById('settings-api-endpoint-url');
+    
+    if (tokenInput && apiInfoSection && endpointUrlEl) {
+      tokenInput.value = '';
+      apiInfoSection.classList.add('hidden');
+      endpointUrlEl.textContent = '';
+    }
+    
+    triggerSilentSync();
+  }
+};
+
+document.getElementById('btn-api-copy').onclick = () => {
+  const tokenInput = document.getElementById('settings-api-token');
+  if (tokenInput && tokenInput.value) {
+    navigator.clipboard.writeText(tokenInput.value).then(() => {
+      alert(t('alert-api-token-copied'));
+    }).catch(err => {
+      console.error('Failed to copy token:', err);
+    });
   }
 };
 

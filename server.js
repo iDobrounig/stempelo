@@ -65,6 +65,7 @@ function createTables() {
         break_custom_rules TEXT DEFAULT '[]',
         holiday_sync_active INTEGER DEFAULT 0,
         activities TEXT DEFAULT '[]',
+        api_token TEXT UNIQUE DEFAULT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
@@ -167,6 +168,23 @@ function createTables() {
           }
         });
       }
+      const hasApiToken = columns.some(col => col.name === 'api_token');
+      if (!hasApiToken) {
+        db.run("ALTER TABLE users ADD COLUMN api_token TEXT DEFAULT NULL", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding api_token column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added api_token column.');
+            db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_api_token ON users (api_token)", (err) => {
+              if (err) {
+                console.error('Failed to create unique index on api_token:', err.message);
+              } else {
+                console.log('Successfully created unique index on api_token.');
+              }
+            });
+          }
+        });
+      }
     });
 
     // 2. Punches Table (Work sessions)
@@ -245,8 +263,8 @@ app.post('/api/sync', async (req, res) => {
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, activities, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, activities, api_token, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
@@ -261,6 +279,7 @@ app.post('/api/sync', async (req, res) => {
               break_custom_rules = excluded.break_custom_rules,
               holiday_sync_active = excluded.holiday_sync_active,
               activities = excluded.activities,
+              api_token = excluded.api_token,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
@@ -280,6 +299,7 @@ app.post('/api/sync', async (req, res) => {
             user.break_custom_rules ? (typeof user.break_custom_rules === 'string' ? user.break_custom_rules : JSON.stringify(user.break_custom_rules)) : '[]',
             user.holiday_sync_active ? 1 : 0,
             user.activities ? (typeof user.activities === 'string' ? user.activities : JSON.stringify(user.activities)) : '[]',
+            user.api_token || null,
             user.created_at,
             user.updated_at,
             user.deleted ? 1 : 0
@@ -384,6 +404,173 @@ app.post('/api/sync', async (req, res) => {
   } catch (error) {
     console.error('Sync error:', error);
     res.status(500).json({ error: 'Internal Server Error during synchronization' });
+  }
+});
+
+// Helper to get a single row with Promises
+function dbGet(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+// REST API Token Authentication Middleware
+async function authenticateApiToken(req, res, next) {
+  let token = req.query.token;
+  const authHeader = req.headers['authorization'];
+  
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  }
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: API token is required' });
+  }
+  
+  try {
+    const user = await dbGet('SELECT * FROM users WHERE api_token = ? AND deleted = 0', [token]);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid API token' });
+    }
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('API token auth error:', error);
+    return res.status(500).json({ error: 'Internal Server Error during authentication' });
+  }
+}
+
+// REST API endpoints (v1)
+app.get('/api/v1/me', authenticateApiToken, (req, res) => {
+  const u = req.user;
+  res.json({
+    id: u.id,
+    name: u.name,
+    weekly_hours: u.weekly_hours,
+    daily_soll: u.daily_soll ? JSON.parse(u.daily_soll) : {},
+    language: u.language,
+    overtime_start_date: u.overtime_start_date,
+    overtime_start_hours: u.overtime_start_hours,
+    holiday_country: u.holiday_country,
+    theme_color: u.theme_color,
+    break_profile: u.break_profile,
+    break_custom_rules: u.break_custom_rules ? JSON.parse(u.break_custom_rules) : [],
+    holiday_sync_active: !!u.holiday_sync_active,
+    activities: u.activities ? JSON.parse(u.activities) : [],
+    created_at: u.created_at,
+    updated_at: u.updated_at
+  });
+});
+
+app.get('/api/v1/punches', authenticateApiToken, async (req, res) => {
+  const userId = req.user.id;
+  const fromDate = req.query.from; // YYYY-MM-DD
+  const toDate = req.query.to;     // YYYY-MM-DD
+  
+  let sql = 'SELECT * FROM punches WHERE user_id = ? AND deleted = 0';
+  const params = [userId];
+  
+  if (fromDate) {
+    sql += ' AND start_time >= ?';
+    params.push(fromDate);
+  }
+  if (toDate) {
+    sql += ' AND start_time <= ?';
+    params.push(toDate + 'T23:59:59.999Z');
+  }
+  
+  sql += ' ORDER BY start_time ASC';
+  
+  try {
+    const punches = await dbAll(sql, params);
+    const formatted = punches.map(p => ({
+      id: p.id,
+      start_time: p.start_time,
+      end_time: p.end_time,
+      manual_edit: !!p.manual_edit,
+      activity: p.activity,
+      created_at: p.created_at,
+      updated_at: p.updated_at
+    }));
+    
+    res.json({
+      user_id: userId,
+      from: fromDate || null,
+      to: toDate || null,
+      punches: formatted
+    });
+  } catch (error) {
+    console.error('API punches fetch error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/v1/time-off', authenticateApiToken, async (req, res) => {
+  const userId = req.user.id;
+  const fromDate = req.query.from; // YYYY-MM-DD
+  const toDate = req.query.to;     // YYYY-MM-DD
+  
+  let sql = 'SELECT * FROM time_off WHERE user_id = ? AND deleted = 0';
+  const params = [userId];
+  
+  if (fromDate) {
+    sql += ' AND date >= ?';
+    params.push(fromDate);
+  }
+  if (toDate) {
+    sql += ' AND date <= ?';
+    params.push(toDate);
+  }
+  
+  sql += ' ORDER BY date ASC';
+  
+  try {
+    const timeOff = await dbAll(sql, params);
+    const formatted = timeOff.map(o => ({
+      id: o.id,
+      date: o.date,
+      type: o.type,
+      created_at: o.created_at,
+      updated_at: o.updated_at
+    }));
+    
+    res.json({
+      user_id: userId,
+      from: fromDate || null,
+      to: toDate || null,
+      time_off: formatted
+    });
+  } catch (error) {
+    console.error('API time-off fetch error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/v1/audit-logs', authenticateApiToken, async (req, res) => {
+  const userId = req.user.id;
+  
+  try {
+    const logs = await dbAll('SELECT * FROM audit_logs WHERE user_id = ? ORDER BY timestamp DESC', [userId]);
+    const formatted = logs.map(l => ({
+      id: l.id,
+      action: l.action,
+      table_name: l.table_name,
+      record_id: l.record_id,
+      old_data: l.old_data ? JSON.parse(l.old_data) : null,
+      new_data: l.new_data ? JSON.parse(l.new_data) : null,
+      timestamp: l.timestamp
+    }));
+    
+    res.json({
+      user_id: userId,
+      audit_logs: formatted
+    });
+  } catch (error) {
+    console.error('API audit-logs fetch error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
