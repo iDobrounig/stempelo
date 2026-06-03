@@ -432,14 +432,226 @@ let autolockTimerId = null;
 let currentPinInput = '';
 let tempCustomRules = [];
 let tempActivities = [];
+let activeViewUserId = null;
 
 // Calendar View State
 let historyViewMode = 'calendar'; // 'list' or 'calendar'
 let calendarActiveDate = Temporal.Now.plainDateISO();
 
-// ----------------------------------------------------
-// 3. Hashing & Security
-// ----------------------------------------------------
+async function applyUserRoleGating(user) {
+  if (!user) return;
+  activeViewUserId = user.id;
+
+  const isAdmin = user.role === 'admin';
+  const teamNavItem = document.getElementById('nav-item-team');
+  if (teamNavItem) {
+    teamNavItem.style.display = isAdmin ? '' : 'none';
+  }
+  
+  const adminSelectors = document.querySelectorAll('.admin-selector-container');
+  adminSelectors.forEach(el => {
+    if (isAdmin) {
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  });
+
+  const adminSettingGroups = document.querySelectorAll('.admin-only');
+  adminSettingGroups.forEach(el => {
+    if (isAdmin) {
+      el.classList.remove('hidden');
+    } else {
+      el.classList.add('hidden');
+    }
+  });
+
+  if (isAdmin) {
+    await populateAdminUserSelectors();
+  }
+}
+
+function getViewedUser() {
+  if (!currentUser) return null;
+  if (!activeViewUserId || activeViewUserId === currentUser.id) return currentUser;
+  return users.find(u => u.id === activeViewUserId) || currentUser;
+}
+
+async function populateAdminUserSelectors() {
+  const selectors = document.querySelectorAll('.admin-user-select');
+  if (selectors.length === 0) return;
+
+  const allUsers = await dbAdapter.getAll('users');
+  const activeAndInactiveUsers = allUsers.filter(u => !u.deleted);
+
+  selectors.forEach(select => {
+    const currentVal = select.value || activeViewUserId || currentUser?.id;
+    select.innerHTML = '';
+    activeAndInactiveUsers.forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.name + (u.is_active === 0 || u.is_active === false ? ' (Inaktiv)' : '');
+      select.appendChild(opt);
+    });
+    if (activeAndInactiveUsers.some(u => u.id === currentVal)) {
+      select.value = currentVal;
+    } else if (activeViewUserId && activeAndInactiveUsers.some(u => u.id === activeViewUserId)) {
+      select.value = activeViewUserId;
+    } else if (currentUser && activeAndInactiveUsers.some(u => u.id === currentUser.id)) {
+      select.value = currentUser.id;
+    }
+  });
+}
+
+function handleAdminUserSelectChange(e) {
+  const newUserId = e.target.value;
+  if (!newUserId) return;
+  activeViewUserId = newUserId;
+  
+  const selectors = document.querySelectorAll('.admin-user-select');
+  selectors.forEach(select => {
+    select.value = newUserId;
+  });
+
+  if (currentTab === 'tab-history') updateHistoryTab();
+  else if (currentTab === 'tab-reports') updateReportsTab();
+  else if (currentTab === 'tab-settings') updateSettingsTab();
+}
+
+function calculateWeeklyActualHours(user, punches, timeOffs) {
+  const today = Temporal.Now.plainDateISO();
+  const wday = today.dayOfWeek;
+  const startOfWeek = today.subtract({ days: wday - 1 });
+  const endOfWeek = startOfWeek.add({ days: 6 });
+  
+  const userPunches = punches.filter(p => p.user_id === user.id);
+  const userTimeOff = timeOffs.filter(o => o.user_id === user.id);
+  
+  const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  let totalIst = 0;
+  
+  let iter = startOfWeek;
+  while (Temporal.PlainDate.compare(iter, endOfWeek) <= 0) {
+    const dateStr = iter.toString();
+    const dayWday = iter.dayOfWeek;
+    const daySoll = user.daily_soll[weekdayKeys[dayWday - 1]] || 0;
+    
+    const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
+    const dayTimeOff = userTimeOff.find(o => o.date === dateStr);
+    
+    const stats = calculateDayDetails(daySoll, dayPunches, dayTimeOff);
+    totalIst += stats.istHours;
+    
+    iter = iter.add({ days: 1 });
+  }
+  
+  return totalIst;
+}
+
+async function updateTeamTab() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+
+  const container = document.getElementById('team-list-container');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const allUsers = await dbAdapter.getAll('users');
+  const allPunches = await dbAdapter.getAll('punches');
+  const allTimeOff = await dbAdapter.getAll('time_off');
+
+  const activeAndInactiveUsers = allUsers.filter(u => !u.deleted);
+
+  activeAndInactiveUsers.sort((a, b) => {
+    const aActive = a.is_active !== 0 && a.is_active !== false;
+    const bActive = b.is_active !== 0 && b.is_active !== false;
+    if (aActive !== bActive) {
+      return aActive ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  activeAndInactiveUsers.forEach(user => {
+    const activePunch = allPunches.find(p => p.user_id === user.id && !p.end_time);
+    const isBreakActive = storageGetItem(`user-break-active-${user.id}`) === 'true';
+    
+    let statusText = '';
+    let statusClass = 'status-stopped';
+    if (isBreakActive) {
+      const breakStart = storageGetItem(`user-break-start-${user.id}`);
+      const timeStr = breakStart ? new Date(breakStart).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' }) : '';
+      statusText = t('team-status-break', { time: timeStr });
+      statusClass = 'status-break';
+    } else if (activePunch) {
+      const timeStr = new Date(activePunch.start_time).toLocaleTimeString(getLanguage(), { hour: '2-digit', minute: '2-digit' });
+      const activitySuffix = activePunch.activity ? ` (${escapeHtml(activePunch.activity)})` : '';
+      statusText = t('team-status-working', { time: timeStr }) + activitySuffix;
+      statusClass = 'status-working';
+    } else {
+      statusText = t('team-status-stopped');
+    }
+
+    const weeklyHours = calculateWeeklyActualHours(user, allPunches, allTimeOff);
+    const tr = document.createElement('tr');
+    
+    const isUserInactive = user.is_active === 0 || user.is_active === false;
+    if (isUserInactive) {
+      tr.style.opacity = '0.6';
+    }
+
+    const tdEmp = document.createElement('td');
+    const roleBadge = user.role === 'admin' 
+      ? ` <span class="tag-badge vacation" style="font-size: 0.75rem; padding: 2px 6px; margin-left: 6px;">Admin</span>`
+      : '';
+    tdEmp.innerHTML = `<strong>${escapeHtml(user.name)}</strong>${roleBadge}`;
+    tr.appendChild(tdEmp);
+
+    const tdStatus = document.createElement('td');
+    tdStatus.innerHTML = `<span class="team-status-dot ${statusClass}"></span> ${statusText}`;
+    tr.appendChild(tdStatus);
+
+    const tdHours = document.createElement('td');
+    tdHours.textContent = formatHours(weeklyHours);
+    tr.appendChild(tdHours);
+
+    const tdActions = document.createElement('td');
+    tdActions.style.textAlign = 'right';
+
+    const btnHistory = document.createElement('button');
+    btnHistory.className = 'btn secondary small';
+    btnHistory.style.marginRight = '6px';
+    btnHistory.textContent = t('team-btn-view-history');
+    btnHistory.onclick = () => viewTeamUserHistory(user.id);
+    tdActions.appendChild(btnHistory);
+
+    const btnReports = document.createElement('button');
+    btnReports.className = 'btn secondary small';
+    btnReports.textContent = t('team-btn-view-reports');
+    btnReports.onclick = () => viewTeamUserReports(user.id);
+    tdActions.appendChild(btnReports);
+
+    tr.appendChild(tdActions);
+    container.appendChild(tr);
+  });
+}
+
+function viewTeamUserHistory(userId) {
+  activeViewUserId = userId;
+  const selectors = document.querySelectorAll('.admin-user-select');
+  selectors.forEach(select => {
+    select.value = userId;
+  });
+  switchTab('tab-history');
+}
+
+function viewTeamUserReports(userId) {
+  activeViewUserId = userId;
+  const selectors = document.querySelectorAll('.admin-user-select');
+  selectors.forEach(select => {
+    select.value = userId;
+  });
+  switchTab('tab-reports');
+}
+
 async function hashPIN(pin) {
   const msgUint8 = new TextEncoder().encode(pin);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
@@ -772,21 +984,27 @@ async function populateUserSelect() {
     return;
   }
   
-  if (users.length === 0) {
+  const activeUsers = users.filter(user => !user.deleted && user.is_active !== 0 && user.is_active !== false);
+
+  if (activeUsers.length === 0) {
     const opt = document.createElement('option');
     opt.value = '';
-    opt.textContent = '-- Kein Benutzer vorhanden --';
+    opt.textContent = '-- Kein aktiver Benutzer --';
     select.appendChild(opt);
     document.getElementById('pin-entry-area').classList.add('hidden');
   } else {
-    users.forEach(user => {
+    activeUsers.forEach(user => {
       const opt = document.createElement('option');
       opt.value = user.id;
       opt.textContent = user.name;
       select.appendChild(opt);
     });
     document.getElementById('pin-entry-area').classList.remove('hidden');
-    select.value = storageGetItem('last-logged-user-id') || users[0].id;
+    
+    // Select last logged user if they are still active, otherwise default to first active user
+    const lastLoggedId = storageGetItem('last-logged-user-id');
+    const hasLastLogged = activeUsers.some(u => u.id === lastLoggedId);
+    select.value = hasLastLogged ? lastLoggedId : activeUsers[0].id;
     resetPinEntry();
 
     if (!currentUser) {
@@ -1057,7 +1275,8 @@ async function updatePunchTab() {
  * Render history table
  */
 async function updateHistoryTab() {
-  if (!currentUser) return;
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
 
   const tbody = document.getElementById('history-table-body');
   tbody.innerHTML = '';
@@ -1092,10 +1311,10 @@ async function updateHistoryTab() {
   }
 
   const allPunches = await dbAdapter.getAll('punches');
-  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+  const userPunches = allPunches.filter(p => p.user_id === viewedUser.id);
 
   const allTimeOff = await dbAdapter.getAll('time_off');
-  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+  const userTimeOff = allTimeOff.filter(o => o.user_id === viewedUser.id);
 
   // Group punches by date (YYYY-MM-DD)
   const daysMap = {};
@@ -1150,7 +1369,7 @@ async function updateHistoryTab() {
     // Parse date
     const dateObj = Temporal.PlainDate.from(dateStr);
     const wday = dateObj.dayOfWeek;
-    const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+    const soll = viewedUser.daily_soll[weekdayKeys[wday - 1]] || 0;
 
     const stats = calculateDayDetails(soll, dateData.punches, dateData.timeOff);
 
@@ -1260,7 +1479,7 @@ async function updateHistoryTab() {
       btnDel.innerHTML = t('history-action-delete');
       btnDel.onclick = async () => {
         if (confirm(t('alert-confirm-delete-absence'))) {
-          await dbAdapter.delete('time_off', dateData.timeOff.id, currentUser.id);
+          await dbAdapter.delete('time_off', dateData.timeOff.id, viewedUser.id);
           updateHistoryTab();
           triggerSilentSync();
         }
@@ -1331,6 +1550,9 @@ async function updateHistoryTab() {
 }
 
 function renderHistoryCalendar(daysMap) {
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
+
   const container = document.getElementById('history-calendar-view');
   const gridContainer = container.querySelector('.calendar-grid');
   
@@ -1371,7 +1593,7 @@ function renderHistoryCalendar(daysMap) {
     const dateData = daysMap[cellDateStr] || { punches: [], timeOff: null };
     
     const wday = cellDate.dayOfWeek;
-    const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+    const soll = viewedUser.daily_soll[weekdayKeys[wday - 1]] || 0;
     const stats = calculateDayDetails(soll, dateData.punches, dateData.timeOff);
 
     const cell = document.createElement('div');
@@ -1559,7 +1781,8 @@ function renderCalendarDayDetails(dateStr, dateData, stats) {
  * Exports the currently filtered work hours protocol to a CSV file.
  */
 async function exportHistoryToCSV() {
-  if (!currentUser) return;
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
 
   const filterPeriod = document.getElementById('filter-period').value;
   const filterStartDateVal = document.getElementById('filter-start-date').value;
@@ -1588,10 +1811,10 @@ async function exportHistoryToCSV() {
   }
 
   const allPunches = await dbAdapter.getAll('punches');
-  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+  const userPunches = allPunches.filter(p => p.user_id === viewedUser.id);
 
   const allTimeOff = await dbAdapter.getAll('time_off');
-  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+  const userTimeOff = allTimeOff.filter(o => o.user_id === viewedUser.id);
 
   const daysMap = {};
 
@@ -1641,7 +1864,7 @@ async function exportHistoryToCSV() {
     const dateData = daysMap[dateStr];
     const dateObj = Temporal.PlainDate.from(dateStr);
     const wday = dateObj.dayOfWeek;
-    const soll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+    const soll = viewedUser.daily_soll[weekdayKeys[wday - 1]] || 0;
 
     const stats = calculateDayDetails(soll, dateData.punches, dateData.timeOff);
 
@@ -1733,7 +1956,7 @@ async function exportHistoryToCSV() {
   
   const startFileStr = filterStart ? filterStart.toString() : 'gesamt';
   const endFileStr = filterEnd ? filterEnd.toString() : 'heute';
-  const sanitizedUserName = currentUser.name.toLowerCase()
+  const sanitizedUserName = viewedUser.name.toLowerCase()
     .replace(/ä/g, 'ae')
     .replace(/ö/g, 'oe')
     .replace(/ü/g, 'ue')
@@ -1757,7 +1980,8 @@ function isCreditedWorkDone(punches) {
  * Update stats dashboard tab
  */
 async function updateReportsTab() {
-  if (!currentUser) return;
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
 
   const periodSelect = document.getElementById('report-period-select');
   const period = periodSelect.value;
@@ -1782,7 +2006,7 @@ async function updateReportsTab() {
   } else {
     // All time (from oldest punch to today)
     const allPunches = await dbAdapter.getAll('punches');
-    const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+    const userPunches = allPunches.filter(p => p.user_id === viewedUser.id);
     if (userPunches.length > 0) {
       const oldestStr = userPunches.reduce((oldest, current) => 
         current.start_time < oldest ? current.start_time : oldest
@@ -1796,10 +2020,10 @@ async function updateReportsTab() {
 
   // Load records
   const allPunches = await dbAdapter.getAll('punches');
-  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+  const userPunches = allPunches.filter(p => p.user_id === viewedUser.id);
 
   const allTimeOff = await dbAdapter.getAll('time_off');
-  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+  const userTimeOff = allTimeOff.filter(o => o.user_id === viewedUser.id);
 
   const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -1817,7 +2041,7 @@ async function updateReportsTab() {
   while (Temporal.PlainDate.compare(iter, end) <= 0) {
     const dateStr = iter.toString();
     const wday = iter.dayOfWeek;
-    const daySoll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+    const daySoll = viewedUser.daily_soll[weekdayKeys[wday - 1]] || 0;
 
     const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
     const dayTimeOff = userTimeOff.find(o => o.date === dateStr);
@@ -1882,7 +2106,7 @@ async function updateReportsTab() {
 
   // Audit Logs rendering
   const auditLogs = await dbAdapter.getAll('audit_logs');
-  const userLogs = auditLogs.filter(l => l.user_id === currentUser.id).sort((a,b) => b.timestamp.localeCompare(a.timestamp));
+  const userLogs = auditLogs.filter(l => l.user_id === viewedUser.id).sort((a,b) => b.timestamp.localeCompare(a.timestamp));
 
   const logContainer = document.getElementById('audit-log-container');
   logContainer.innerHTML = '';
@@ -1974,7 +2198,8 @@ function renderActivityDistribution(activityHoursMap) {
  * Render visual trend chart (SVG-based) in the reports tab
  */
 async function renderTrendChart() {
-  if (!currentUser) return;
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
   const svg = document.getElementById('trend-chart-svg');
   if (!svg) return;
 
@@ -1993,10 +2218,10 @@ async function renderTrendChart() {
   }
 
   const allPunches = await dbAdapter.getAll('punches');
-  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+  const userPunches = allPunches.filter(p => p.user_id === viewedUser.id);
 
   const allTimeOff = await dbAdapter.getAll('time_off');
-  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+  const userTimeOff = allTimeOff.filter(o => o.user_id === viewedUser.id);
 
   const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const chartData = [];
@@ -2009,7 +2234,7 @@ async function renderTrendChart() {
     while (Temporal.PlainDate.compare(iter, m.end) <= 0) {
       const dateStr = iter.toString();
       const wday = iter.dayOfWeek;
-      const daySoll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+      const daySoll = viewedUser.daily_soll[weekdayKeys[wday - 1]] || 0;
 
       const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
       const dayTimeOff = userTimeOff.find(o => o.date === dateStr);
@@ -2134,7 +2359,8 @@ async function renderTrendChart() {
  * Print A4 Portrait Timesheet PDF for the selected month using browser print preview
  */
 async function printMonthlyReport() {
-  if (!currentUser) return;
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
 
   const periodSelect = document.getElementById('report-period-select');
   const period = periodSelect.value;
@@ -2153,7 +2379,7 @@ async function printMonthlyReport() {
   } else {
     // All time or fallbacks: use oldest punch or current month
     const allPunches = await dbAdapter.getAll('punches');
-    const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+    const userPunches = allPunches.filter(p => p.user_id === viewedUser.id);
     if (userPunches.length > 0) {
       const oldestStr = userPunches.reduce((oldest, current) => 
         current.start_time < oldest ? current.start_time : oldest
@@ -2168,10 +2394,10 @@ async function printMonthlyReport() {
   const monthEnd = start.with({ day: start.daysInMonth });
   
   const allPunches = await dbAdapter.getAll('punches');
-  const userPunches = allPunches.filter(p => p.user_id === currentUser.id);
+  const userPunches = allPunches.filter(p => p.user_id === viewedUser.id);
 
   const allTimeOff = await dbAdapter.getAll('time_off');
-  const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id);
+  const userTimeOff = allTimeOff.filter(o => o.user_id === viewedUser.id);
 
   const weekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const lang = getLanguage();
@@ -2204,7 +2430,7 @@ async function printMonthlyReport() {
     const dateStr = iter.toString();
     const wday = iter.dayOfWeek;
     const isWeekend = wday === 6 || wday === 7;
-    const daySoll = currentUser.daily_soll[weekdayKeys[wday - 1]] || 0;
+    const daySoll = viewedUser.daily_soll[weekdayKeys[wday - 1]] || 0;
 
     const dayPunches = userPunches.filter(p => p.start_time.startsWith(dateStr));
     const dayTimeOff = userTimeOff.find(o => o.date === dateStr);
@@ -2297,7 +2523,7 @@ async function printMonthlyReport() {
 <html lang="${lang}">
 <head>
   <meta charset="UTF-8">
-  <title>${printTitle} - ${currentUser.name} - ${formattedMonthYear}</title>
+  <title>${printTitle} - ${viewedUser.name} - ${formattedMonthYear}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -2436,7 +2662,7 @@ async function printMonthlyReport() {
 
   <div class="meta-grid">
     <div class="meta-item">
-      <strong>${lang === 'de' ? 'Mitarbeiter' : 'Employee'}:</strong> ${currentUser.name}
+      <strong>${lang === 'de' ? 'Mitarbeiter' : 'Employee'}:</strong> ${viewedUser.name}
     </div>
     <div class="meta-item" style="text-align: right;">
       <strong>${lang === 'de' ? 'Erstellt am' : 'Created on'}:</strong> ${today.toLocaleString(lang, { day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -2609,26 +2835,39 @@ function renderSettingsActivities() {
 function updateSettingsTab(onlyTranslateDynamic = false) {
   if (!currentUser) return;
 
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
+
   if (!onlyTranslateDynamic) {
-    document.getElementById('set-user-name').value = currentUser.name;
+    document.getElementById('set-user-name').value = viewedUser.name;
     document.getElementById('set-user-pin').value = ''; // Don't expose pin
 
-    document.getElementById('soll-mon').value = currentUser.daily_soll.mon || 0;
-    document.getElementById('soll-tue').value = currentUser.daily_soll.tue || 0;
-    document.getElementById('soll-wed').value = currentUser.daily_soll.wed || 0;
-    document.getElementById('soll-thu').value = currentUser.daily_soll.thu || 0;
-    document.getElementById('soll-fri').value = currentUser.daily_soll.fri || 0;
-    document.getElementById('soll-sat').value = currentUser.daily_soll.sat || 0;
-    document.getElementById('soll-sun').value = currentUser.daily_soll.sun || 0;
+    document.getElementById('soll-mon').value = viewedUser.daily_soll.mon || 0;
+    document.getElementById('soll-tue').value = viewedUser.daily_soll.tue || 0;
+    document.getElementById('soll-wed').value = viewedUser.daily_soll.wed || 0;
+    document.getElementById('soll-thu').value = viewedUser.daily_soll.thu || 0;
+    document.getElementById('soll-fri').value = viewedUser.daily_soll.fri || 0;
+    document.getElementById('soll-sat').value = viewedUser.daily_soll.sat || 0;
+    document.getElementById('soll-sun').value = viewedUser.daily_soll.sun || 0;
 
-    document.getElementById('set-user-lang').value = currentUser.language || 'de';
-    document.getElementById('set-user-theme').value = currentUser.theme_color || 'cyan';
+    document.getElementById('set-user-lang').value = viewedUser.language || 'de';
+    document.getElementById('set-user-theme').value = viewedUser.theme_color || 'cyan';
 
-    document.getElementById('set-overtime-start-date').value = currentUser.overtime_start_date || '';
-    document.getElementById('set-overtime-start-hours').value = currentUser.overtime_start_hours !== undefined ? currentUser.overtime_start_hours : 0.0;
+    document.getElementById('set-overtime-start-date').value = viewedUser.overtime_start_date || '';
+    document.getElementById('set-overtime-start-hours').value = viewedUser.overtime_start_hours !== undefined ? viewedUser.overtime_start_hours : 0.0;
 
-    document.getElementById('set-user-notifications').checked = !!currentUser.notifications_enabled;
-    document.getElementById('set-holiday-country').value = currentUser.holiday_country || '';
+    document.getElementById('set-user-notifications').checked = !!viewedUser.notifications_enabled;
+    document.getElementById('set-holiday-country').value = viewedUser.holiday_country || '';
+
+    // Load admin fields if admin
+    const roleSelect = document.getElementById('set-user-role');
+    if (roleSelect) {
+      roleSelect.value = viewedUser.role || 'user';
+    }
+    const statusSelect = document.getElementById('set-user-status');
+    if (statusSelect) {
+      statusSelect.value = viewedUser.is_active !== undefined ? String(viewedUser.is_active) : '1';
+    }
 
     const serverUrl = SyncService.getServerUrl();
     document.getElementById('sync-server-url').value = serverUrl;
@@ -2659,8 +2898,8 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
     }
 
     // Load Compliance and Break Profiles settings
-    const breakProfile = currentUser.break_profile || 'austria';
-    tempCustomRules = currentUser.break_custom_rules ? [...currentUser.break_custom_rules] : [];
+    const breakProfile = viewedUser.break_profile || 'austria';
+    tempCustomRules = viewedUser.break_custom_rules ? [...viewedUser.break_custom_rules] : [];
     
     document.getElementById('set-break-profile').value = breakProfile;
     
@@ -2673,14 +2912,14 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
     }
 
     // Load Automatic Holiday Sync settings
-    document.getElementById('set-holiday-sync-active').checked = !!currentUser.holiday_sync_active;
+    document.getElementById('set-holiday-sync-active').checked = !!viewedUser.holiday_sync_active;
 
     // Load Activities
-    tempActivities = currentUser.activities ? [...currentUser.activities] : [];
+    tempActivities = viewedUser.activities ? [...viewedUser.activities] : [];
     renderSettingsActivities();
 
     // Load API token settings
-    const token = currentUser.api_token || '';
+    const token = viewedUser.api_token || '';
     const tokenInput = document.getElementById('settings-api-token');
     const apiInfoSection = document.getElementById('settings-api-info-section');
     const endpointUrlEl = document.getElementById('settings-api-endpoint-url');
@@ -2792,6 +3031,7 @@ function switchTab(tabId) {
   else if (tabId === 'tab-history') updateHistoryTab();
   else if (tabId === 'tab-reports') updateReportsTab();
   else if (tabId === 'tab-settings') updateSettingsTab();
+  else if (tabId === 'tab-team') updateTeamTab();
 }
 
 function lockApp() {
@@ -2800,6 +3040,7 @@ function lockApp() {
     autolockTimerId = null;
   }
   currentUser = null;
+  activeViewUserId = null;
   storageRemoveItem('session-expiry');
   applyThemeColor('cyan');
   document.getElementById('main-screen').classList.add('hidden');
@@ -3151,6 +3392,10 @@ document.getElementById('form-create-user').onsubmit = async (e) => {
   const pin = document.getElementById('new-user-pin').value;
   const hashedPin = await hashPIN(pin);
 
+  const allUsers = await dbAdapter.getAll('users');
+  const nonDeletedUsers = allUsers.filter(u => !u.deleted);
+  const isFirstUser = nonDeletedUsers.length === 0;
+
   const newUser = {
     id: crypto.randomUUID(),
     name: name,
@@ -3167,6 +3412,8 @@ document.getElementById('form-create-user').onsubmit = async (e) => {
       sat: parseFloat(document.getElementById('new-soll-sat').value) || 0,
       sun: parseFloat(document.getElementById('new-soll-sun').value) || 0
     },
+    role: isFirstUser ? 'admin' : 'user',
+    is_active: 1,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted: 0
@@ -3200,6 +3447,12 @@ document.getElementById('pin-ok').onclick = async () => {
     const user = await dbAdapter.get('users', userId);
     if (!user) return;
 
+    if (user.is_active === 0 || user.is_active === false) {
+      alert(t('settings-status-inactive-error'));
+      resetPinEntry();
+      return;
+    }
+
     const hashed = await hashPIN(currentPinInput);
     if (hashed === user.pin) {
       currentUser = user;
@@ -3220,6 +3473,8 @@ document.getElementById('pin-ok').onclick = async () => {
 
       updateConnectionBadge();
       
+      await applyUserRoleGating(user);
+
       // Switch screen
       document.getElementById('lock-screen').classList.remove('active');
       document.getElementById('main-screen').classList.remove('hidden');
@@ -3635,19 +3890,43 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   e.preventDefault();
   if (!currentUser) return;
 
+  const viewedUser = getViewedUser();
+  if (!viewedUser) return;
+
+  let newRole = viewedUser.role || 'user';
+  let newActive = viewedUser.is_active !== undefined ? viewedUser.is_active : 1;
+
+  if (currentUser.role === 'admin') {
+    newRole = document.getElementById('set-user-role').value;
+    newActive = parseInt(document.getElementById('set-user-status').value, 10);
+
+    // Guard: Prevent deactivating or demoting the last admin
+    if (viewedUser.role === 'admin' && (newRole !== 'admin' || newActive === 0)) {
+      const allUsers = await dbAdapter.getAll('users');
+      const activeAdmins = allUsers.filter(u => !u.deleted && u.role === 'admin' && u.is_active !== 0 && u.is_active !== false);
+      if (activeAdmins.length <= 1) {
+        alert(t('settings-admin-demote-error'));
+        return;
+      }
+    }
+  }
+
   const name = document.getElementById('set-user-name').value;
   const pin = document.getElementById('set-user-pin').value;
   const lang = document.getElementById('set-user-lang').value;
   const theme = document.getElementById('set-user-theme').value;
 
-  currentUser.name = name;
-  currentUser.language = lang;
-  currentUser.theme_color = theme;
+  viewedUser.name = name;
+  viewedUser.language = lang;
+  viewedUser.theme_color = theme;
+  viewedUser.role = newRole;
+  viewedUser.is_active = newActive;
+
   if (pin && pin.length === 4) {
-    currentUser.pin = await hashPIN(pin);
+    viewedUser.pin = await hashPIN(pin);
   }
 
-  currentUser.daily_soll = {
+  viewedUser.daily_soll = {
     mon: parseFloat(document.getElementById('soll-mon').value) || 0,
     tue: parseFloat(document.getElementById('soll-tue').value) || 0,
     wed: parseFloat(document.getElementById('soll-wed').value) || 0,
@@ -3657,23 +3936,23 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
     sun: parseFloat(document.getElementById('soll-sun').value) || 0
   };
 
-  currentUser.weekly_hours = Object.values(currentUser.daily_soll).reduce((a, b) => a + b, 0);
+  viewedUser.weekly_hours = Object.values(viewedUser.daily_soll).reduce((a, b) => a + b, 0);
 
   const overtimeStartDate = document.getElementById('set-overtime-start-date').value;
   const overtimeStartHours = parseFloat(document.getElementById('set-overtime-start-hours').value) || 0.0;
 
-  currentUser.overtime_start_date = overtimeStartDate || null;
-  currentUser.overtime_start_hours = overtimeStartHours;
+  viewedUser.overtime_start_date = overtimeStartDate || null;
+  viewedUser.overtime_start_hours = overtimeStartHours;
 
   const notificationsEnabled = document.getElementById('set-user-notifications').checked;
-  currentUser.notifications_enabled = notificationsEnabled;
+  viewedUser.notifications_enabled = notificationsEnabled;
 
   const holidayCountry = document.getElementById('set-holiday-country').value;
-  currentUser.holiday_country = holidayCountry || null;
+  viewedUser.holiday_country = holidayCountry || null;
 
   // Save compliance and break profiles settings
   const breakProfile = document.getElementById('set-break-profile').value;
-  currentUser.break_profile = breakProfile;
+  viewedUser.break_profile = breakProfile;
 
   const customRules = [];
   const ruleRows = document.querySelectorAll('.break-rule-row');
@@ -3683,30 +3962,36 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
     customRules.push({ threshold, deduction });
   });
   customRules.sort((a, b) => a.threshold - b.threshold);
-  currentUser.break_custom_rules = customRules;
+  viewedUser.break_custom_rules = customRules;
 
   // Save automatic holiday sync checkbox
-  currentUser.holiday_sync_active = document.getElementById('set-holiday-sync-active').checked;
+  viewedUser.holiday_sync_active = document.getElementById('set-holiday-sync-active').checked;
 
   // Save Activities
-  currentUser.activities = [...tempActivities];
+  viewedUser.activities = [...tempActivities];
 
-  if (notificationsEnabled && ('Notification' in window) && Notification.permission !== 'granted') {
-    await requestNotificationPermission();
-  } else if (!notificationsEnabled) {
-    clearReminderTimers();
+  if (viewedUser.id === currentUser.id) {
+    if (notificationsEnabled && ('Notification' in window) && Notification.permission !== 'granted') {
+      await requestNotificationPermission();
+    } else if (!notificationsEnabled) {
+      clearReminderTimers();
+    }
   }
 
-  await dbAdapter.put('users', currentUser);
-  document.getElementById('current-user-name').textContent = name;
-  
-  // Set the selected language globally
-  applyGlobalLanguage(lang);
+  await dbAdapter.put('users', viewedUser);
 
-  // Apply theme color
-  applyThemeColor(theme);
+  if (viewedUser.id === currentUser.id) {
+    currentUser = viewedUser;
+    document.getElementById('current-user-name').textContent = name;
+    // Set the selected language globally
+    applyGlobalLanguage(lang);
+    // Apply theme color
+    applyThemeColor(theme);
+  }
 
   alert(t('alert-settings-saved'));
+  await populateUserSelect();
+  await populateAdminUserSelectors();
   updateSettingsTab();
   triggerSilentSync();
 };
@@ -3988,6 +4273,10 @@ document.getElementById('filter-type').onchange = () => updateHistoryTab();
 document.getElementById('filter-manual-only').onchange = () => updateHistoryTab();
 document.getElementById('btn-export-csv').onclick = () => exportHistoryToCSV();
 
+document.getElementById('admin-user-select-history').onchange = handleAdminUserSelectChange;
+document.getElementById('admin-user-select-reports').onchange = handleAdminUserSelectChange;
+document.getElementById('admin-user-select-settings').onchange = handleAdminUserSelectChange;
+
 
 // Sync triggers
 document.getElementById('btn-sync-now').onclick = async () => {
@@ -4032,7 +4321,7 @@ async function syncHolidaysSilently() {
     const holidays = await response.json();
     
     const allTimeOff = await dbAdapter.getAll('time_off');
-    const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id && o.deleted === 0);
+    const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id && !o.deleted);
     
     let count = 0;
     for (const hol of holidays) {
@@ -4091,7 +4380,7 @@ document.getElementById('btn-import-holidays').onclick = async () => {
     const holidays = await response.json();
 
     const allTimeOff = await dbAdapter.getAll('time_off');
-    const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id && o.deleted === 0);
+    const userTimeOff = allTimeOff.filter(o => o.user_id === currentUser.id && !o.deleted);
 
     let count = 0;
     for (const hol of holidays) {
@@ -4524,6 +4813,8 @@ async function initApp() {
         }
         updateConnectionBadge();
         
+        await applyUserRoleGating(user);
+
         document.getElementById('lock-screen').classList.remove('active');
         document.getElementById('main-screen').classList.remove('hidden');
         document.getElementById('current-user-name').textContent = user.name;

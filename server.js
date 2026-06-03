@@ -66,6 +66,8 @@ function createTables() {
         holiday_sync_active INTEGER DEFAULT 0,
         activities TEXT DEFAULT '[]',
         api_token TEXT UNIQUE DEFAULT NULL,
+        role TEXT DEFAULT 'user',
+        is_active INTEGER DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
@@ -185,6 +187,26 @@ function createTables() {
           }
         });
       }
+      const hasRole = columns.some(col => col.name === 'role');
+      if (!hasRole) {
+        db.run("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding role column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added role column.');
+          }
+        });
+      }
+      const hasIsActive = columns.some(col => col.name === 'is_active');
+      if (!hasIsActive) {
+        db.run("ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding is_active column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added is_active column.');
+          }
+        });
+      }
     });
 
     // 2. Punches Table (Work sessions)
@@ -263,8 +285,8 @@ app.post('/api/sync', async (req, res) => {
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, activities, api_token, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, activities, api_token, role, is_active, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
@@ -280,6 +302,8 @@ app.post('/api/sync', async (req, res) => {
               holiday_sync_active = excluded.holiday_sync_active,
               activities = excluded.activities,
               api_token = excluded.api_token,
+              role = excluded.role,
+              is_active = excluded.is_active,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
@@ -300,6 +324,8 @@ app.post('/api/sync', async (req, res) => {
             user.holiday_sync_active ? 1 : 0,
             user.activities ? (typeof user.activities === 'string' ? user.activities : JSON.stringify(user.activities)) : '[]',
             user.api_token || null,
+            user.role || 'user',
+            user.is_active !== undefined ? (user.is_active ? 1 : 0) : 1,
             user.created_at,
             user.updated_at,
             user.deleted ? 1 : 0
@@ -371,6 +397,7 @@ app.post('/api/sync', async (req, res) => {
       break_custom_rules: u.break_custom_rules ? JSON.parse(u.break_custom_rules) : [],
       holiday_sync_active: !!u.holiday_sync_active,
       activities: u.activities ? JSON.parse(u.activities) : [],
+      is_active: u.is_active !== undefined ? !!u.is_active : true,
       deleted: !!u.deleted
     }));
 
@@ -460,6 +487,8 @@ app.get('/api/v1/me', authenticateApiToken, (req, res) => {
     break_custom_rules: u.break_custom_rules ? JSON.parse(u.break_custom_rules) : [],
     holiday_sync_active: !!u.holiday_sync_active,
     activities: u.activities ? JSON.parse(u.activities) : [],
+    role: u.role || 'user',
+    is_active: u.is_active !== undefined ? !!u.is_active : true,
     created_at: u.created_at,
     updated_at: u.updated_at
   });
