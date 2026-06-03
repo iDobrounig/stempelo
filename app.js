@@ -4294,6 +4294,22 @@ document.getElementById('btn-sync-now').onclick = async () => {
   try {
     const res = await SyncService.sync(dbAdapter);
     document.getElementById('sync-last-time').textContent = new Date(res.serverTime).toLocaleString(getLanguage());
+    
+    if (currentUser) {
+      const latestUser = await dbAdapter.get('users', currentUser.id);
+      if (latestUser) {
+        currentUser = latestUser;
+        const userNameEl = document.getElementById('current-user-name');
+        if (userNameEl) userNameEl.textContent = currentUser.name;
+        if (currentUser.theme_color) {
+          applyThemeColor(currentUser.theme_color);
+        } else {
+          applyThemeColor('cyan');
+        }
+        await applyUserRoleGating(currentUser);
+      }
+    }
+
     alert(t('alert-sync-success', { count: res.appliedCount }));
   } catch (error) {
     console.error(error);
