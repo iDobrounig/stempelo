@@ -193,6 +193,13 @@ const translations = {
     'settings-darkmode-label-start': 'Startzeit (Dark Mode)',
     'settings-darkmode-label-end': 'Endzeit (Light Mode)',
 
+    // Auto-Lock Settings
+    'settings-autolock-label': 'Automatische Sperre (Inaktivität)',
+    'settings-autolock-disabled': 'Deaktiviert',
+    'settings-autolock-1min': 'Nach 1 Minute Inaktivität',
+    'settings-autolock-3min': 'Nach 3 Minuten Inaktivität',
+    'settings-autolock-5min': 'Nach 5 Minuten Inaktivität',
+
     // Overtime Account
     'settings-overtime-title': 'Überstundenkonto',
     'settings-label-overtime-date': 'Startdatum (Berechnungsbasis)',
@@ -515,6 +522,13 @@ const translations = {
     'settings-darkmode-mode-system': 'Follow System Preference',
     'settings-darkmode-label-start': 'Start Time (Dark Mode)',
     'settings-darkmode-label-end': 'End Time (Light Mode)',
+
+    // Auto-Lock Settings
+    'settings-autolock-label': 'Automatic Lock (Inactivity)',
+    'settings-autolock-disabled': 'Disabled',
+    'settings-autolock-1min': 'After 1 minute of inactivity',
+    'settings-autolock-3min': 'After 3 minutes of inactivity',
+    'settings-autolock-5min': 'After 5 minutes of inactivity',
 
     // Overtime Account
     'settings-overtime-title': 'Overtime Account',

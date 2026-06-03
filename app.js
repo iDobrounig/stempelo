@@ -428,6 +428,7 @@ let users = [];
 let currentUser = null;
 let currentTab = 'tab-punch';
 let timerInterval = null;
+let autolockTimerId = null;
 let currentPinInput = '';
 let tempCustomRules = [];
 let tempActivities = [];
@@ -2632,6 +2633,13 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
     const serverUrl = SyncService.getServerUrl();
     document.getElementById('sync-server-url').value = serverUrl;
 
+    // Load Auto-Lock settings
+    const autolockTime = storageGetItem('autolock-time') || 'disabled';
+    const autolockSelect = document.getElementById('set-autolock-time');
+    if (autolockSelect) {
+      autolockSelect.value = autolockTime;
+    }
+
     // Load Dark Mode Scheduler settings
     const dmMode = storageGetItem('darkmode-mode') || 'disabled';
     const dmStart = storageGetItem('darkmode-start') || '20:00';
@@ -2787,12 +2795,36 @@ function switchTab(tabId) {
 }
 
 function lockApp() {
+  if (autolockTimerId) {
+    clearTimeout(autolockTimerId);
+    autolockTimerId = null;
+  }
   currentUser = null;
   storageRemoveItem('session-expiry');
   applyThemeColor('cyan');
   document.getElementById('main-screen').classList.add('hidden');
   document.getElementById('lock-screen').classList.add('active');
   populateUserSelect();
+}
+
+function resetAutolockTimer() {
+  if (autolockTimerId) {
+    clearTimeout(autolockTimerId);
+    autolockTimerId = null;
+  }
+
+  if (!currentUser) return;
+
+  const autolockTime = storageGetItem('autolock-time') || 'disabled';
+  if (autolockTime === 'disabled') return;
+
+  const minutes = parseInt(autolockTime, 10);
+  if (isNaN(minutes)) return;
+
+  autolockTimerId = setTimeout(() => {
+    console.log(`Auto-lock triggered after ${minutes} minutes of inactivity.`);
+    lockApp();
+  }, minutes * 60 * 1000);
 }
 
 // ----------------------------------------------------
@@ -3195,6 +3227,7 @@ document.getElementById('pin-ok').onclick = async () => {
       
       const savedTab = storageGetItem('active-tab') || 'tab-punch';
       switchTab(savedTab);
+      resetAutolockTimer();
       syncHolidaysSilently();
     } else {
       resetPinEntry();
@@ -4417,6 +4450,19 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
+// Settings Auto-Lock change handler
+document.getElementById('set-autolock-time').onchange = () => {
+  const autolockTime = document.getElementById('set-autolock-time').value;
+  storageSetItem('autolock-time', autolockTime);
+  resetAutolockTimer();
+};
+
+// Activity listeners for Auto-Lock
+const activityEvents = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'click', 'scroll'];
+activityEvents.forEach(eventName => {
+  window.addEventListener(eventName, resetAutolockTimer, { passive: true });
+});
+
 // ----------------------------------------------------
 // 8. Initialization & Service Worker
 // ----------------------------------------------------
@@ -4484,6 +4530,7 @@ async function initApp() {
         
         const savedTab = storageGetItem('active-tab') || 'tab-punch';
         switchTab(savedTab);
+        resetAutolockTimer();
         autoLoggedIn = true;
         console.log(`Auto-logged in user: ${user.name}`);
         syncHolidaysSilently();

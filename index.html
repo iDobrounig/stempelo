@@ -396,7 +396,7 @@
 
         <!-- 2d. Tab Panel: Einstellungen -->
         <section id="tab-settings" class="tab-content">
-          <form id="form-user-settings" style="display: contents;">
+          <form id="form-user-settings">
             <div class="settings-grid">
               
               <!-- Left Column: Work & Profile Settings -->
@@ -466,6 +466,29 @@
                   </div>
                 </div>
 
+                <!-- Card 7: Compliance & Pausen-Regeln -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-compliance-title">Compliance & Pausen-Regeln</h3>
+                  <div class="form-group">
+                    <label for="set-break-profile" data-i18n="settings-break-profile-label">Pausen-Abzugs-Profil</label>
+                    <select id="set-break-profile" class="custom-select">
+                      <option value="austria" data-i18n="break-profile-austria">Österreich (30 Min. ab 6 Std. Arbeit)</option>
+                      <option value="germany" data-i18n="break-profile-germany">Deutschland (30 Min. ab 6 Std. / 45 Min. ab 9 Std.)</option>
+                      <option value="custom" data-i18n="break-profile-custom">Benutzerdefinierte Regeln</option>
+                      <option value="disabled" data-i18n="break-profile-disabled">Deaktiviert (Kein autom. Abzug)</option>
+                    </select>
+                  </div>
+                  
+                  <!-- Custom Rules list container, visible only if set-break-profile === 'custom' -->
+                  <div id="break-custom-rules-section" class="hidden" style="display: flex; flex-direction: column; gap: 10px;">
+                    <h4 class="settings-sub" style="margin-top: 0; padding-bottom: 4px;" data-i18n="settings-break-custom-rules-title">Benutzerdefinierte Pausenregeln</h4>
+                    <div id="break-custom-rules-list" style="display: flex; flex-direction: column; gap: 10px;">
+                      <!-- Dynamic rows will be inserted here -->
+                    </div>
+                    <button type="button" id="btn-add-break-rule" class="btn secondary small" style="margin-top: 5px; width: fit-content;" data-i18n="settings-btn-add-break-rule">+ Regel hinzufügen</button>
+                  </div>
+                </div>
+
                 <!-- Card 4: Erinnerungen & Feiertags-Import -->
                 <div class="settings-card glass">
                   <h3 data-i18n="settings-reminders-holidays-title">Erinnerungen & Feiertags-Import</h3>
@@ -500,10 +523,32 @@
                   </div>
                 </div>
 
-                <!-- Save Actions Bar -->
-                <div class="settings-actions-card" style="margin-top: 10px; display: flex; justify-content: flex-end;">
-                  <button type="submit" class="btn primary" data-i18n="settings-btn-save" style="width: 100%; max-width: 320px; height: 48px;">Einstellungen speichern</button>
+                <!-- Card 9: Tätigkeiten & Projekte -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-activities-title">Tätigkeiten & Projekte</h3>
+                  <div class="form-group-row" style="display: flex; gap: 10px; align-items: flex-end; width: 100%;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                      <input type="text" id="settings-activity-input" data-i18n-placeholder="settings-activity-placeholder" placeholder="z.B. Kundensupport, Projekt A..." style="width: 100%;">
+                    </div>
+                    <button type="button" id="settings-activity-add" class="btn secondary" data-i18n="settings-activities-add-btn" style="height: 48px; min-width: 100px; padding: 0 15px; box-sizing: border-box;">+ Hinzufügen</button>
+                  </div>
+                  <div id="settings-activities-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 180px; overflow-y: auto;" class="scroller">
+                    <!-- Dynamic activity rows populated in app.js -->
+                  </div>
                 </div>
+
+                <!-- Card 8: Lokaler Speicherplatz -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-storage-title">Lokaler Speicherplatz</h3>
+                  <div class="storage-info-box">
+                    <p><span data-i18n="settings-storage-usage-label">Verwendeter Speicher:</span> <strong id="storage-usage-text">Lade...</strong></p>
+                    <p><span data-i18n="settings-storage-quota-label">Verfügbarer Speicher:</span> <span id="storage-quota-text">Lade...</span></p>
+                    <div class="storage-bar-container">
+                      <div id="storage-bar-fill" class="storage-bar-fill" style="width: 0%;"></div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
               <!-- Right Column: Appearance & Device Settings -->
@@ -527,6 +572,15 @@
                       <option value="cobalt" data-i18n="theme-color-cobalt">Kobaltblau (Cobalt)</option>
                       <option value="amethyst" data-i18n="theme-color-amethyst">Amethyst-Violett (Amethyst)</option>
                       <option value="amber" data-i18n="theme-color-amber">Bernstein-Orange (Amber)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="set-autolock-time" data-i18n="settings-autolock-label">Automatische Sperre (Inaktivität)</label>
+                    <select id="set-autolock-time" class="custom-select">
+                      <option value="disabled" data-i18n="settings-autolock-disabled">Deaktiviert</option>
+                      <option value="1" data-i18n="settings-autolock-1min">Nach 1 Minute Inaktivität</option>
+                      <option value="3" data-i18n="settings-autolock-3min">Nach 3 Minuten Inaktivität</option>
+                      <option value="5" data-i18n="settings-autolock-5min">Nach 5 Minuten Inaktivität</option>
                     </select>
                   </div>
                   
@@ -569,57 +623,8 @@
                   </div>
                 </div>
 
-                <!-- Card 7: Compliance & Pausen-Regeln -->
-                <div class="settings-card glass">
-                  <h3 data-i18n="settings-compliance-title">Compliance & Pausen-Regeln</h3>
-                  <div class="form-group">
-                    <label for="set-break-profile" data-i18n="settings-break-profile-label">Pausen-Abzugs-Profil</label>
-                    <select id="set-break-profile" class="custom-select">
-                      <option value="austria" data-i18n="break-profile-austria">Österreich (30 Min. ab 6 Std. Arbeit)</option>
-                      <option value="germany" data-i18n="break-profile-germany">Deutschland (30 Min. ab 6 Std. / 45 Min. ab 9 Std.)</option>
-                      <option value="custom" data-i18n="break-profile-custom">Benutzerdefinierte Regeln</option>
-                      <option value="disabled" data-i18n="break-profile-disabled">Deaktiviert (Kein autom. Abzug)</option>
-                    </select>
-                  </div>
-                  
-                  <!-- Custom Rules list container, visible only if set-break-profile === 'custom' -->
-                  <div id="break-custom-rules-section" class="hidden" style="display: flex; flex-direction: column; gap: 10px;">
-                    <h4 class="settings-sub" style="margin-top: 0; padding-bottom: 4px;" data-i18n="settings-break-custom-rules-title">Benutzerdefinierte Pausenregeln</h4>
-                    <div id="break-custom-rules-list" style="display: flex; flex-direction: column; gap: 10px;">
-                      <!-- Dynamic rows will be inserted here -->
-                    </div>
-                    <button type="button" id="btn-add-break-rule" class="btn secondary small" style="margin-top: 5px; width: fit-content;" data-i18n="settings-btn-add-break-rule">+ Regel hinzufügen</button>
-                  </div>
-                </div>
-
-                <!-- Card 8: Lokaler Speicherplatz -->
-                <div class="settings-card glass">
-                  <h3 data-i18n="settings-storage-title">Lokaler Speicherplatz</h3>
-                  <div class="storage-info-box">
-                    <p><span data-i18n="settings-storage-usage-label">Verwendeter Speicher:</span> <strong id="storage-usage-text">Lade...</strong></p>
-                    <p><span data-i18n="settings-storage-quota-label">Verfügbarer Speicher:</span> <span id="storage-quota-text">Lade...</span></p>
-                    <div class="storage-bar-container">
-                      <div id="storage-bar-fill" class="storage-bar-fill" style="width: 0%;"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Card 9: Tätigkeiten & Projekte -->
-                <div class="settings-card glass" style="margin-top: 15px;">
-                  <h3 data-i18n="settings-activities-title">Tätigkeiten & Projekte</h3>
-                  <div class="form-group-row" style="display: flex; gap: 10px; align-items: flex-end; width: 100%;">
-                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                      <input type="text" id="settings-activity-input" data-i18n-placeholder="settings-activity-placeholder" placeholder="z.B. Kundensupport, Projekt A..." style="width: 100%;">
-                    </div>
-                    <button type="button" id="settings-activity-add" class="btn secondary" data-i18n="settings-activities-add-btn" style="height: 48px; min-width: 100px; padding: 0 15px; box-sizing: border-box;">+ Hinzufügen</button>
-                  </div>
-                  <div id="settings-activities-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 180px; overflow-y: auto;" class="scroller">
-                    <!-- Dynamic activity rows populated in app.js -->
-                  </div>
-                </div>
-
                 <!-- Card 10: REST API-Zugriff -->
-                <div class="settings-card glass" style="margin-top: 15px;">
+                <div class="settings-card glass">
                   <h3 data-i18n="settings-api-title">REST API-Zugriff</h3>
                   <div class="form-group">
                     <label for="settings-api-token" data-i18n="settings-api-token-label">API-Token</label>
@@ -645,6 +650,9 @@
 
               </div>
 
+            </div>
+            <div style="display: flex; justify-content: center; margin-top: 20px;">
+              <button type="submit" class="btn primary" data-i18n="settings-btn-save" style="width: 100%; max-width: 320px; height: 48px;">Einstellungen speichern</button>
             </div>
           </form>
         </section>
