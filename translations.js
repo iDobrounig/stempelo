@@ -99,6 +99,10 @@ const translations = {
     'reports-audit-action': '(Aktion: <strong>{action}</strong>)',
 
     // Tab Settings
+    'settings-subtab-general': 'Allgemein',
+    'settings-subtab-worktime': 'Arbeitszeit & Pausen',
+    'settings-subtab-appearance': 'Darstellung',
+    'settings-subtab-sync': 'Verbindung & API',
     'settings-profile-title': 'Profil-Einstellungen',
     'settings-appearance-title': 'Darstellung & Design',
     'settings-workhours-title': 'Arbeitszeit & Soll-Stunden',
@@ -451,6 +455,10 @@ const translations = {
     'reports-audit-action': '(Action: <strong>{action}</strong>)',
 
     // Tab Settings
+    'settings-subtab-general': 'General',
+    'settings-subtab-worktime': 'Work & Breaks',
+    'settings-subtab-appearance': 'Appearance',
+    'settings-subtab-sync': 'Sync & API',
     'settings-profile-title': 'Profile Settings',
     'settings-appearance-title': 'Appearance & Design',
     'settings-workhours-title': 'Work Schedule & Targets',

@@ -438,11 +438,17 @@
           </div>
 
           <form id="form-user-settings">
-            <div class="settings-grid">
-              
-              <!-- Left Column: Work & Profile Settings -->
-              <div class="settings-column">
-                
+            <!-- Sub-Tab Navigation for Settings -->
+            <div class="settings-sub-nav glass">
+              <button type="button" class="sub-nav-item active" data-sub-tab="settings-panel-general" data-i18n="settings-subtab-general">Allgemein</button>
+              <button type="button" class="sub-nav-item" data-sub-tab="settings-panel-worktime" data-i18n="settings-subtab-worktime">Arbeitszeit & Pausen</button>
+              <button type="button" class="sub-nav-item" data-sub-tab="settings-panel-appearance" data-i18n="settings-subtab-appearance">Darstellung</button>
+              <button type="button" class="sub-nav-item" data-sub-tab="settings-panel-sync" data-i18n="settings-subtab-sync">Verbindung & API</button>
+            </div>
+
+            <div class="settings-panels-container">
+              <!-- Panel 1: Allgemein -->
+              <div class="settings-sub-panel active" id="settings-panel-general">
                 <!-- Card 1: Profil-Einstellungen -->
                 <div class="settings-card glass">
                   <h3 data-i18n="settings-profile-title">Profil-Einstellungen</h3>
@@ -470,6 +476,23 @@
                   </div>
                 </div>
 
+                <!-- Card 9: Tätigkeiten & Projekte -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-activities-title">Tätigkeiten & Projekte</h3>
+                  <div class="form-group-row" style="display: flex; gap: 10px; align-items: flex-end; width: 100%;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                      <input type="text" id="settings-activity-input" data-i18n-placeholder="settings-activity-placeholder" placeholder="z.B. Kundensupport, Projekt A..." style="width: 100%;">
+                    </div>
+                    <button type="button" id="settings-activity-add" class="btn secondary" data-i18n="settings-activities-add-btn" style="height: 48px; min-width: 100px; padding: 0 15px; box-sizing: border-box;">+ Hinzufügen</button>
+                  </div>
+                  <div id="settings-activities-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 180px; overflow-y: auto;" class="scroller">
+                    <!-- Dynamic activity rows populated in app.js -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel 2: Arbeitszeit & Pausen -->
+              <div class="settings-sub-panel" id="settings-panel-worktime">
                 <!-- Card 2: Arbeitszeit & Soll-Stunden -->
                 <div class="settings-card glass">
                   <h3 data-i18n="settings-workhours-title">Arbeitszeit & Soll-Stunden</h3>
@@ -577,38 +600,10 @@
                     </label>
                   </div>
                 </div>
-
-                <!-- Card 9: Tätigkeiten & Projekte -->
-                <div class="settings-card glass">
-                  <h3 data-i18n="settings-activities-title">Tätigkeiten & Projekte</h3>
-                  <div class="form-group-row" style="display: flex; gap: 10px; align-items: flex-end; width: 100%;">
-                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                      <input type="text" id="settings-activity-input" data-i18n-placeholder="settings-activity-placeholder" placeholder="z.B. Kundensupport, Projekt A..." style="width: 100%;">
-                    </div>
-                    <button type="button" id="settings-activity-add" class="btn secondary" data-i18n="settings-activities-add-btn" style="height: 48px; min-width: 100px; padding: 0 15px; box-sizing: border-box;">+ Hinzufügen</button>
-                  </div>
-                  <div id="settings-activities-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 180px; overflow-y: auto;" class="scroller">
-                    <!-- Dynamic activity rows populated in app.js -->
-                  </div>
-                </div>
-
-                <!-- Card 8: Lokaler Speicherplatz -->
-                <div class="settings-card glass">
-                  <h3 data-i18n="settings-storage-title">Lokaler Speicherplatz</h3>
-                  <div class="storage-info-box">
-                    <p><span data-i18n="settings-storage-usage-label">Verwendeter Speicher:</span> <strong id="storage-usage-text">Lade...</strong></p>
-                    <p><span data-i18n="settings-storage-quota-label">Verfügbarer Speicher:</span> <span id="storage-quota-text">Lade...</span></p>
-                    <div class="storage-bar-container">
-                      <div id="storage-bar-fill" class="storage-bar-fill" style="width: 0%;"></div>
-                    </div>
-                  </div>
-                </div>
-
               </div>
 
-              <!-- Right Column: Appearance & Device Settings -->
-              <div class="settings-column">
-                
+              <!-- Panel 3: Darstellung -->
+              <div class="settings-sub-panel" id="settings-panel-appearance">
                 <!-- Card 5: Darstellung & Design -->
                 <div class="settings-card glass">
                   <h3 data-i18n="settings-appearance-title">Darstellung & Design</h3>
@@ -660,6 +655,21 @@
                   </div>
                 </div>
 
+                <!-- Card 8: Lokaler Speicherplatz -->
+                <div class="settings-card glass">
+                  <h3 data-i18n="settings-storage-title">Lokaler Speicherplatz</h3>
+                  <div class="storage-info-box">
+                    <p><span data-i18n="settings-storage-usage-label">Verwendeter Speicher:</span> <strong id="storage-usage-text">Lade...</strong></p>
+                    <p><span data-i18n="settings-storage-quota-label">Verfügbarer Speicher:</span> <span id="storage-quota-text">Lade...</span></p>
+                    <div class="storage-bar-container">
+                      <div id="storage-bar-fill" class="storage-bar-fill" style="width: 0%;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Panel 4: Verbindung & Sync -->
+              <div class="settings-sub-panel" id="settings-panel-sync">
                 <!-- Card 6: Cloud-Synchronisation -->
                 <div class="settings-card glass">
                   <h3 data-i18n="settings-sync-title">Synchronisation (Cloud / SQLite)</h3>
@@ -702,9 +712,7 @@
                     </div>
                   </div>
                 </div>
-
               </div>
-
             </div>
             <div style="display: flex; justify-content: center; margin-top: 20px;">
               <button type="submit" class="btn primary" data-i18n="settings-btn-save" style="width: 100%; max-width: 320px; height: 48px;">Einstellungen speichern</button>

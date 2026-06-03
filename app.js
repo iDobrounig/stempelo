@@ -3034,6 +3034,34 @@ function switchTab(tabId) {
   else if (tabId === 'tab-team') updateTeamTab();
 }
 
+let activeSettingsSubTab = 'settings-panel-general';
+
+function switchSettingsSubTab(subTabId) {
+  activeSettingsSubTab = subTabId;
+  storageSetItem('settings-active-sub-tab', subTabId);
+  refreshSession();
+
+  // Update sub-nav buttons
+  const subNavItems = document.querySelectorAll('.settings-sub-nav .sub-nav-item');
+  subNavItems.forEach(item => {
+    if (item.getAttribute('data-sub-tab') === subTabId) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  // Switch panels
+  const panels = document.querySelectorAll('.settings-sub-panel');
+  panels.forEach(panel => {
+    if (panel.id === subTabId) {
+      panel.classList.add('active');
+    } else {
+      panel.classList.remove('active');
+    }
+  });
+}
+
 function lockApp() {
   if (autolockTimerId) {
     clearTimeout(autolockTimerId);
@@ -4565,6 +4593,14 @@ navItems.forEach(item => {
   };
 });
 
+// Settings Sub-Tab Click Handlers
+const subNavItems = document.querySelectorAll('.settings-sub-nav .sub-nav-item');
+subNavItems.forEach(item => {
+  item.onclick = () => {
+    switchSettingsSubTab(item.getAttribute('data-sub-tab'));
+  };
+});
+
 // Theme Hue Mapping:
 // - cyan: 185 (default)
 // - emerald: 145
@@ -4912,6 +4948,10 @@ async function initApp() {
 
   // Initialize connection badge
   updateConnectionBadge();
+
+  // Restore active settings sub-tab
+  const savedSubTab = storageGetItem('settings-active-sub-tab') || 'settings-panel-general';
+  switchSettingsSubTab(savedSubTab);
 
   // Register Service Worker for PWA
   if ('serviceWorker' in navigator) {

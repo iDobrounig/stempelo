@@ -881,14 +881,60 @@ body {
   display: block;
 }
 
-/* Settings View */
-.settings-grid {
+/* Settings View Sub-Tabs & Panels */
+.settings-sub-nav {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  gap: 6px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--color-card-border);
+  border-radius: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: 20px;
 }
 
-.settings-column {
+.settings-sub-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-sub-nav .sub-nav-item {
+  flex: 1;
+  min-width: max-content;
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+
+.settings-sub-nav .sub-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text-primary);
+}
+
+.settings-sub-nav .sub-nav-item.active {
+  background: hsla(var(--hue-primary), 100%, 50%, 0.12);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 2px 8px hsla(var(--hue-primary), 100%, 50%, 0.1);
+}
+
+.settings-panels-container {
+  width: 100%;
+}
+
+.settings-sub-panel {
+  display: none;
+}
+
+.settings-sub-panel.active {
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -1249,9 +1295,10 @@ body {
     grid-template-columns: repeat(4, 1fr);
   }
 
-  .settings-grid {
+  .settings-sub-panel.active {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    align-items: start;
     gap: 20px;
   }
 
