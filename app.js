@@ -3448,8 +3448,21 @@ document.getElementById('form-create-user').onsubmit = async (e) => {
   };
 
   await dbAdapter.put('users', newUser);
+
+  // Audit Log
+  const actorId = currentUser ? currentUser.id : newUser.id;
+  await dbAdapter.logAudit(actorId, 'insert', 'users', newUser.id, null, newUser);
+
   document.getElementById('dlg-create-user').close();
-  populateUserSelect();
+  
+  await populateUserSelect();
+  await populateAdminUserSelectors();
+
+  if (currentUser && currentUser.role === 'admin') {
+    await updateTeamTab();
+  }
+
+  triggerSilentSync();
 };
 
 // PIN Keyboard Input
@@ -4040,6 +4053,13 @@ document.getElementById('manual-end-time').oninput = updateSinglePunchSummary;
 document.getElementById('manual-break').oninput = updateSinglePunchSummary;
 
 document.getElementById('btn-show-create-user').onclick = () => {
+  document.getElementById('new-user-name').value = '';
+  document.getElementById('new-user-pin').value = '';
+  document.getElementById('dlg-create-user').showModal();
+  document.getElementById('btn-cancel-create-user')?.focus({ preventScroll: true });
+};
+
+document.getElementById('btn-team-add-user').onclick = () => {
   document.getElementById('new-user-name').value = '';
   document.getElementById('new-user-pin').value = '';
   document.getElementById('dlg-create-user').showModal();
