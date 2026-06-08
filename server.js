@@ -46,8 +46,44 @@ function dbAll(sql, params = []) {
   });
 }
 
+// Helper to get a single row with Promises
+function dbGet(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
 function createTables() {
   db.serialize(async () => {
+    // 0. Companies Table
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS companies (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        code TEXT UNIQUE NOT NULL,
+        secret_key TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        deleted INTEGER DEFAULT 0
+      )
+    `);
+
+    // 0b. Company Invites Table
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS company_invites (
+        id TEXT PRIMARY KEY,
+        company_id TEXT NOT NULL REFERENCES companies(id),
+        code TEXT UNIQUE NOT NULL,
+        role TEXT DEFAULT 'user',
+        created_at TEXT NOT NULL,
+        expires_at TEXT,
+        used INTEGER DEFAULT 0
+      )
+    `);
+
     // 1. Users Table
     await dbRun(`
       CREATE TABLE IF NOT EXISTS users (
@@ -68,6 +104,9 @@ function createTables() {
         api_token TEXT UNIQUE DEFAULT NULL,
         role TEXT DEFAULT 'user',
         is_active INTEGER DEFAULT 1,
+        company_id TEXT DEFAULT NULL,
+        sync_token TEXT DEFAULT NULL,
+        device_mode TEXT DEFAULT 'shared',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         deleted INTEGER DEFAULT 0
@@ -207,6 +246,36 @@ function createTables() {
           }
         });
       }
+      const hasCompanyId = columns.some(col => col.name === 'company_id');
+      if (!hasCompanyId) {
+        db.run("ALTER TABLE users ADD COLUMN company_id TEXT DEFAULT NULL", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding company_id column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added company_id column.');
+          }
+        });
+      }
+      const hasSyncToken = columns.some(col => col.name === 'sync_token');
+      if (!hasSyncToken) {
+        db.run("ALTER TABLE users ADD COLUMN sync_token TEXT DEFAULT NULL", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding sync_token column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added sync_token column.');
+          }
+        });
+      }
+      const hasDeviceMode = columns.some(col => col.name === 'device_mode');
+      if (!hasDeviceMode) {
+        db.run("ALTER TABLE users ADD COLUMN device_mode TEXT DEFAULT 'shared'", (err) => {
+          if (err) {
+            console.error('Failed to migrate: error adding device_mode column to users:', err.message);
+          } else {
+            console.log('Successfully migrated users table: added device_mode column.');
+          }
+        });
+      }
     });
 
     // 2. Punches Table (Work sessions)
@@ -273,20 +342,208 @@ function createTables() {
   });
 }
 
-// REST Sync Endpoint
-app.post('/api/sync', async (req, res) => {
-  const { lastSyncTime, changes } = req.body;
-  const serverTime = new Date().toISOString();
+function generateCode(prefix) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let parts = [];
+  for (let p = 0; p < 2; p++) {
+    let part = '';
+    for (let i = 0; i < 4; i++) {
+      part += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    parts.push(part);
+  }
+  return `${prefix}-${parts.join('-')}`;
+}
+
+function generateUniqueCode(prefix, table, column) {
+  return new Promise(async (resolve, reject) => {
+    let code;
+    let attempts = 0;
+    while (attempts < 10) {
+      code = generateCode(prefix);
+      try {
+        const row = await dbGet(`SELECT 1 FROM ${table} WHERE ${column} = ?`, [code]);
+        if (!row) {
+          return resolve(code);
+        }
+      } catch (err) {
+        return reject(err);
+      }
+      attempts++;
+    }
+    reject(new Error('Failed to generate a unique code after 10 attempts'));
+  });
+}
+
+// Company Management Endpoints
+app.post('/api/companies/create', async (req, res) => {
+  const { name, key } = req.body;
+  if (!name || !key) {
+    return res.status(400).json({ error: 'Company name and admin key are required' });
+  }
+  const companyId = crypto.randomUUID();
+  try {
+    const code = await generateUniqueCode('COM', 'companies', 'code');
+    const now = new Date().toISOString();
+    
+    await dbRun(`
+      INSERT INTO companies (id, name, code, secret_key, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [companyId, name, code, key, now, now]);
+
+    res.json({ company_id: companyId, code, secret_key: key });
+  } catch (error) {
+    console.error('Create company error:', error);
+    res.status(500).json({ error: 'Failed to create company' });
+  }
+});
+
+app.post('/api/companies/invite', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Company admin key is required' });
+  }
+  const secretKey = authHeader.substring(7).trim();
+  const { role } = req.body; // 'user' or 'admin'
+  const targetRole = role === 'admin' ? 'admin' : 'user';
 
   try {
-    // Perform synchronization within a database transaction if possible, or sequentially
+    const company = await dbGet('SELECT * FROM companies WHERE secret_key = ? AND deleted = 0', [secretKey]);
+    if (!company) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid company key' });
+    }
+
+    const inviteId = crypto.randomUUID();
+    const code = await generateUniqueCode('INV', 'company_invites', 'code');
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(); // 48h validity
+
+    await dbRun(`
+      INSERT INTO company_invites (id, company_id, code, role, created_at, expires_at, used)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
+    `, [inviteId, company.id, code, targetRole, now, expiresAt]);
+
+    res.json({ code });
+  } catch (error) {
+    console.error('Create invite error:', error);
+    res.status(500).json({ error: 'Failed to create invite code' });
+  }
+});
+
+app.post('/api/companies/join', async (req, res) => {
+  const { invite_code, user_id } = req.body;
+  if (!invite_code || !user_id) {
+    return res.status(400).json({ error: 'Invite code and user ID are required' });
+  }
+
+  try {
+    const invite = await dbGet(`
+      SELECT * FROM company_invites 
+      WHERE code = ? AND used = 0 AND (expires_at IS NULL OR expires_at > ?)
+    `, [invite_code, new Date().toISOString()]);
+
+    if (!invite) {
+      return res.status(400).json({ error: 'Invalid or expired invite code' });
+    }
+
+    await dbRun('UPDATE company_invites SET used = 1 WHERE id = ?', [invite.id]);
+
+    const syncToken = crypto.randomBytes(32).toString('hex');
+    const user = await dbGet('SELECT * FROM users WHERE id = ?', [user_id]);
+    
+    const now = new Date().toISOString();
+    if (user) {
+      await dbRun(`
+        UPDATE users 
+        SET company_id = ?, sync_token = ?, role = ?, updated_at = ?
+        WHERE id = ?
+      `, [invite.company_id, syncToken, invite.role, now, user_id]);
+    } else {
+      await dbRun(`
+        INSERT INTO users (id, name, pin, weekly_hours, daily_soll, company_id, sync_token, role, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [user_id, 'Joining User', '0000', 0, '{}', invite.company_id, syncToken, invite.role, now, now]);
+    }
+
+    res.json({
+      company_id: invite.company_id,
+      sync_token: syncToken,
+      role: invite.role
+    });
+  } catch (error) {
+    console.error('Join company error:', error);
+    res.status(500).json({ error: 'Failed to join company' });
+  }
+});
+
+// REST Sync Endpoint (Multi-Tenant & Standalone)
+app.post('/api/sync', async (req, res) => {
+  const { 
+    company_code, company_key, 
+    user_id, sync_token, 
+    lastSyncTime, 
+    changes 
+  } = req.body;
+  const serverTime = new Date().toISOString();
+
+  let mode = null;
+  let activeCompanyId = null;
+  let activeUserId = null;
+
+  try {
+    if (company_code && company_key) {
+      const company = await dbGet('SELECT * FROM companies WHERE code = ? AND secret_key = ? AND deleted = 0', [company_code, company_key]);
+      if (!company) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid company credentials' });
+      }
+      mode = 'company';
+      activeCompanyId = company.id;
+    } else if (user_id && sync_token) {
+      let user = await dbGet('SELECT * FROM users WHERE id = ?', [user_id]);
+      if (user) {
+        if (user.sync_token !== sync_token) {
+          return res.status(401).json({ error: 'Unauthorized: Invalid sync token' });
+        }
+        activeCompanyId = user.company_id;
+      } else {
+        activeCompanyId = null;
+      }
+      mode = 'personal';
+      activeUserId = user_id;
+    } else {
+      return res.status(400).json({ error: 'Authentication credentials are required (either company_code/company_key or user_id/sync_token)' });
+    }
+
     if (changes) {
       // 1. Sync Users
       if (changes.users && changes.users.length > 0) {
         for (const user of changes.users) {
+          if (mode === 'personal' && user.id !== activeUserId) {
+            continue;
+          }
+
+          const existingUser = await dbGet('SELECT company_id, sync_token FROM users WHERE id = ?', [user.id]);
+          
+          let targetCompanyId = activeCompanyId;
+          let targetSyncToken = sync_token;
+
+          if (existingUser) {
+            targetCompanyId = existingUser.company_id;
+            targetSyncToken = existingUser.sync_token;
+          } else if (mode === 'personal') {
+            targetCompanyId = null;
+            targetSyncToken = sync_token;
+          }
+
           await dbRun(`
-            INSERT INTO users (id, name, pin, weekly_hours, daily_soll, language, overtime_start_date, overtime_start_hours, holiday_country, theme_color, break_profile, break_custom_rules, holiday_sync_active, activities, api_token, role, is_active, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (
+              id, name, pin, weekly_hours, daily_soll, language, 
+              overtime_start_date, overtime_start_hours, holiday_country, 
+              theme_color, break_profile, break_custom_rules, holiday_sync_active, 
+              activities, api_token, role, is_active, company_id, sync_token, device_mode, 
+              created_at, updated_at, deleted
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
               name = excluded.name,
               pin = excluded.pin,
@@ -304,6 +561,9 @@ app.post('/api/sync', async (req, res) => {
               api_token = excluded.api_token,
               role = excluded.role,
               is_active = excluded.is_active,
+              company_id = excluded.company_id,
+              sync_token = excluded.sync_token,
+              device_mode = excluded.device_mode,
               created_at = excluded.created_at,
               updated_at = excluded.updated_at,
               deleted = excluded.deleted
@@ -326,6 +586,9 @@ app.post('/api/sync', async (req, res) => {
             user.api_token || null,
             user.role || 'user',
             user.is_active !== undefined ? (user.is_active ? 1 : 0) : 1,
+            targetCompanyId,
+            targetSyncToken,
+            user.device_mode || 'shared',
             user.created_at,
             user.updated_at,
             user.deleted ? 1 : 0
@@ -333,9 +596,22 @@ app.post('/api/sync', async (req, res) => {
         }
       }
 
+      // Build Set of allowed user IDs for safety
+      const allowedUserIds = new Set();
+      if (mode === 'company') {
+        const companyUsers = await dbAll('SELECT id FROM users WHERE company_id = ?', [activeCompanyId]);
+        companyUsers.forEach(u => allowedUserIds.add(u.id));
+        if (changes.users) {
+          changes.users.forEach(u => allowedUserIds.add(u.id));
+        }
+      } else {
+        allowedUserIds.add(activeUserId);
+      }
+
       // 2. Sync Punches
       if (changes.punches && changes.punches.length > 0) {
         for (const punch of changes.punches) {
+          if (!allowedUserIds.has(punch.user_id)) continue;
           await dbRun(`
             INSERT INTO punches (id, user_id, start_time, end_time, manual_edit, activity, created_at, updated_at, deleted)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -356,6 +632,7 @@ app.post('/api/sync', async (req, res) => {
       // 3. Sync Time Off
       if (changes.time_off && changes.time_off.length > 0) {
         for (const off of changes.time_off) {
+          if (!allowedUserIds.has(off.user_id)) continue;
           await dbRun(`
             INSERT INTO time_off (id, user_id, date, type, created_at, updated_at, deleted)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -374,6 +651,7 @@ app.post('/api/sync', async (req, res) => {
       // 4. Sync Audit Logs
       if (changes.audit_logs && changes.audit_logs.length > 0) {
         for (const log of changes.audit_logs) {
+          if (!allowedUserIds.has(log.user_id)) continue;
           await dbRun(`
             INSERT OR IGNORE INTO audit_logs (id, user_id, action, table_name, record_id, old_data, new_data, timestamp)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -382,15 +660,34 @@ app.post('/api/sync', async (req, res) => {
       }
     }
 
-    // Retrieve all server updates since lastSyncTime
     const syncCutoff = lastSyncTime || new Date(0).toISOString();
 
-    const updatedUsers = await dbAll(`SELECT * FROM users WHERE updated_at > ?`, [syncCutoff]);
-    const updatedPunches = await dbAll(`SELECT * FROM punches WHERE updated_at > ?`, [syncCutoff]);
-    const updatedTimeOff = await dbAll(`SELECT * FROM time_off WHERE updated_at > ?`, [syncCutoff]);
-    const newAuditLogs = await dbAll(`SELECT * FROM audit_logs WHERE timestamp > ?`, [syncCutoff]);
+    let updatedUsers, updatedPunches, updatedTimeOff, newAuditLogs;
 
-    // Parse JSON columns back to objects
+    if (mode === 'company') {
+      updatedUsers = await dbAll(`SELECT * FROM users WHERE company_id = ? AND updated_at > ?`, [activeCompanyId, syncCutoff]);
+      updatedPunches = await dbAll(`
+        SELECT p.* FROM punches p
+        JOIN users u ON p.user_id = u.id
+        WHERE u.company_id = ? AND p.updated_at > ?
+      `, [activeCompanyId, syncCutoff]);
+      updatedTimeOff = await dbAll(`
+        SELECT t.* FROM time_off t
+        JOIN users u ON t.user_id = u.id
+        WHERE u.company_id = ? AND t.updated_at > ?
+      `, [activeCompanyId, syncCutoff]);
+      newAuditLogs = await dbAll(`
+        SELECT a.* FROM audit_logs a
+        JOIN users u ON a.user_id = u.id
+        WHERE u.company_id = ? AND a.timestamp > ?
+      `, [activeCompanyId, syncCutoff]);
+    } else {
+      updatedUsers = await dbAll(`SELECT * FROM users WHERE id = ? AND updated_at > ?`, [activeUserId, syncCutoff]);
+      updatedPunches = await dbAll(`SELECT * FROM punches WHERE user_id = ? AND updated_at > ?`, [activeUserId, syncCutoff]);
+      updatedTimeOff = await dbAll(`SELECT * FROM time_off WHERE user_id = ? AND updated_at > ?`, [activeUserId, syncCutoff]);
+      newAuditLogs = await dbAll(`SELECT * FROM audit_logs WHERE user_id = ? AND timestamp > ?`, [activeUserId, syncCutoff]);
+    }
+
     const responseUsers = updatedUsers.map(u => ({
       ...u,
       daily_soll: JSON.parse(u.daily_soll),
@@ -433,16 +730,6 @@ app.post('/api/sync', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error during synchronization' });
   }
 });
-
-// Helper to get a single row with Promises
-function dbGet(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-}
 
 // REST API Token Authentication Middleware
 async function authenticateApiToken(req, res, next) {

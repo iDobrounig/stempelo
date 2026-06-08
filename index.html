@@ -461,6 +461,13 @@
                     <label for="set-user-pin" data-i18n="settings-label-pin">4-stellige PIN</label>
                     <input type="password" id="set-user-pin" pattern="[0-9]{4}" data-i18n-placeholder="settings-placeholder-pin" placeholder="Unverändert lassen..." maxlength="4">
                   </div>
+                  <div class="form-group">
+                    <label for="set-device-mode" data-i18n="settings-label-devicemode">Geräte-Modus</label>
+                    <select id="set-device-mode" class="custom-select">
+                      <option value="shared" data-i18n="settings-devicemode-shared">Shared Kiosk (alle Profile anzeigen)</option>
+                      <option value="personal" data-i18n="settings-devicemode-personal">Personal Phone (Sperrbildschirm überspringen)</option>
+                    </select>
+                  </div>
                   <div class="form-group admin-only hidden" id="admin-set-role-group">
                     <label for="set-user-role" data-i18n="settings-label-role">Benutzer-Rolle</label>
                     <select id="set-user-role">
@@ -677,6 +684,8 @@
                   <div class="sync-status-box">
                     <p><span data-i18n="settings-sync-status-label">Status:</span> <strong id="sync-status-text" data-i18n="settings-sync-status-disconnected">Nicht verbunden</strong></p>
                     <p><span data-i18n="settings-sync-last-label">Letzter Abgleich:</span> <span id="sync-last-time" data-i18n="settings-sync-never">Nie</span></p>
+                    <p><span data-i18n="settings-sync-mode-label">Verbindungs-Modus:</span> <span id="sync-active-mode">Privat / Stand-alone</span></p>
+                    <p id="sync-company-details-row" class="hidden"><span data-i18n="settings-sync-company-label">Unternehmen:</span> <span id="sync-active-company-name">-</span> (Code: <span id="sync-active-company-code">-</span>)</p>
                   </div>
                   <div class="form-group">
                     <label for="sync-server-url" data-i18n="settings-sync-label-server">Server URL</label>
@@ -686,6 +695,18 @@
                     <button type="button" id="btn-sync-now" class="btn primary" data-i18n="settings-sync-btn-now">Jetzt abgleichen</button>
                     <button type="button" id="btn-export-csv" class="btn secondary" data-i18n="settings-sync-btn-csv">Als CSV exportieren</button>
                     <button type="button" id="btn-export-backup" class="btn secondary" data-i18n="settings-sync-btn-backup">Backup (JSON) laden/speichern</button>
+                  </div>
+                  <!-- Company operations -->
+                  <div class="sync-company-actions" style="margin-top: 15px; border-top: 1px solid var(--color-card-border); padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                    <!-- For admins only -->
+                    <div id="company-admin-actions" class="hidden" style="display: flex; flex-direction: column; gap: 8px;">
+                      <button type="button" id="btn-generate-invite" class="btn secondary" data-i18n="settings-sync-btn-invite" style="width: 100%;">Einladungscode generieren</button>
+                      <div id="invite-code-display" class="hidden" style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; text-align: center; font-family: monospace; font-size: 1.1rem; font-weight: bold; border: 1px dashed var(--color-accent);"></div>
+                    </div>
+                    <!-- For standalone users only -->
+                    <div id="company-join-actions" class="hidden">
+                      <button type="button" id="btn-join-company-trigger" class="btn secondary" data-i18n="settings-sync-btn-join" style="width: 100%;">Unternehmen beitreten (Einladungscode)</button>
+                    </div>
                   </div>
                 </div>
 
@@ -920,9 +941,51 @@
         <input type="url" id="lock-sync-server-url" required placeholder="https://stempelo.dobrounig.net">
       </div>
 
+      <div class="form-group">
+        <label for="lock-sync-server-mode" data-i18n="server-label-mode">Verbindungs-Modus</label>
+        <select id="lock-sync-server-mode" class="custom-select">
+          <option value="standalone" data-i18n="server-mode-standalone">Stand-Alone / Privat (Kein Unternehmen)</option>
+          <option value="kiosk" data-i18n="server-mode-kiosk">Kiosk-Modus (Mit Unternehmen verbinden)</option>
+          <option value="create" data-i18n="server-mode-create">Neues Unternehmen gründen</option>
+        </select>
+      </div>
+
+      <div class="form-group hidden" id="group-company-name">
+        <label for="lock-sync-company-name" data-i18n="server-label-company-name">Unternehmens-Name</label>
+        <input type="text" id="lock-sync-company-name" placeholder="z. B. Meine Firma GmbH">
+      </div>
+
+      <div class="form-group hidden" id="group-company-code">
+        <label for="lock-sync-company-code" data-i18n="server-label-company-code">Unternehmens-Code</label>
+        <input type="text" id="lock-sync-company-code" placeholder="COM-XXXX-XXXX" style="text-transform: uppercase;">
+      </div>
+
+      <div class="form-group hidden" id="group-company-key">
+        <label for="lock-sync-company-key" data-i18n="server-label-company-key">Unternehmens-Schlüssel / Passwort</label>
+        <input type="password" id="lock-sync-company-key" placeholder="Passwort...">
+      </div>
+
       <div class="dialog-actions">
         <button type="button" class="btn secondary" id="btn-close-server-settings" autofocus data-i18n="server-btn-cancel">Abbrechen</button>
         <button type="button" class="btn primary" id="btn-save-server-settings" data-i18n="server-btn-save">Speichern & Abgleichen</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- F. Join Company Dialog -->
+  <dialog id="dlg-join-company" class="glass-dialog">
+    <form method="dialog" id="form-join-company">
+      <h3 data-i18n="join-title">Unternehmen beitreten</h3>
+      <p data-i18n="join-desc">Gib den Einladungscode deines Unternehmens ein, um dein Profil zu verknüpfen.</p>
+      
+      <div class="form-group">
+        <label for="join-invite-code" data-i18n="join-label-code">Einladungscode</label>
+        <input type="text" id="join-invite-code" required placeholder="INV-XXXX-XXXX" pattern="^INV-[A-Z0-9]{4}-[A-Z0-9]{4}$" style="text-transform: uppercase;">
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" id="btn-close-join-company" autofocus data-i18n="join-btn-cancel">Abbrechen</button>
+        <button type="button" class="btn primary" id="btn-submit-join-company" data-i18n="join-btn-submit">Beitreten</button>
       </div>
     </form>
   </dialog>

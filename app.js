@@ -1007,6 +1007,30 @@ async function populateUserSelect() {
     select.value = hasLastLogged ? lastLoggedId : activeUsers[0].id;
     resetPinEntry();
 
+    const personalUser = users.find(u => u.id === select.value);
+    const isPersonalMode = personalUser && personalUser.device_mode === 'personal';
+
+    if (isPersonalMode) {
+      select.classList.add('hidden');
+      const lockDesc = document.querySelector('.app-header-logo p');
+      if (lockDesc) {
+        lockDesc.textContent = getLanguage() === 'de' 
+          ? `Guten Tag, ${personalUser.name}. Bitte gib deine PIN ein.` 
+          : `Hello, ${personalUser.name}. Please enter your PIN.`;
+      }
+      const newUserBtn = document.getElementById('btn-show-create-user');
+      if (newUserBtn) newUserBtn.classList.add('hidden');
+    } else {
+      select.classList.remove('hidden');
+      const lockDesc = document.querySelector('.app-header-logo p');
+      if (lockDesc) {
+        lockDesc.setAttribute('data-i18n', 'lock-select-profile');
+        lockDesc.textContent = t('lock-select-profile');
+      }
+      const newUserBtn = document.getElementById('btn-show-create-user');
+      if (newUserBtn) newUserBtn.classList.remove('hidden');
+    }
+
     if (!currentUser) {
       const initialUserId = select.value;
       if (initialUserId) {
@@ -2852,6 +2876,7 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
 
     document.getElementById('set-user-lang').value = viewedUser.language || 'de';
     document.getElementById('set-user-theme').value = viewedUser.theme_color || 'cyan';
+    document.getElementById('set-device-mode').value = viewedUser.device_mode || 'shared';
 
     document.getElementById('set-overtime-start-date').value = viewedUser.overtime_start_date || '';
     document.getElementById('set-overtime-start-hours').value = viewedUser.overtime_start_hours !== undefined ? viewedUser.overtime_start_hours : 0.0;
@@ -2937,6 +2962,45 @@ function updateSettingsTab(onlyTranslateDynamic = false) {
         apiInfoSection.classList.add('hidden');
         endpointUrlEl.textContent = '';
       }
+    }
+  }
+
+  const activeMode = localStorage.getItem('sync-connection-mode') || SyncService.configCache['sync-connection-mode'] || 'standalone';
+  const modeTextEl = document.getElementById('sync-active-mode');
+  if (modeTextEl) {
+    if (activeMode === 'kiosk') {
+      modeTextEl.textContent = getLanguage() === 'de' ? 'Kiosk-Modus (Unternehmen)' : 'Kiosk Mode (Company)';
+    } else {
+      modeTextEl.textContent = getLanguage() === 'de' ? 'Privat / Stand-alone' : 'Private / Stand-alone';
+    }
+  }
+
+  const companyDetailsRow = document.getElementById('sync-company-details-row');
+  if (companyDetailsRow) {
+    if (activeMode === 'kiosk') {
+      const companyName = localStorage.getItem('sync-company-name') || SyncService.configCache['sync-company-name'] || '-';
+      const companyCode = localStorage.getItem('sync-company-code') || SyncService.configCache['sync-company-code'] || '-';
+      document.getElementById('sync-active-company-name').textContent = companyName;
+      document.getElementById('sync-active-company-code').textContent = companyCode;
+      companyDetailsRow.classList.remove('hidden');
+    } else {
+      companyDetailsRow.classList.add('hidden');
+    }
+  }
+
+  const adminActions = document.getElementById('company-admin-actions');
+  const joinActions = document.getElementById('company-join-actions');
+  if (adminActions && joinActions) {
+    if (currentUser && currentUser.role === 'admin' && activeMode === 'kiosk') {
+      adminActions.classList.remove('hidden');
+    } else {
+      adminActions.classList.add('hidden');
+    }
+
+    if (activeMode !== 'kiosk' && (!currentUser || !currentUser.company_id)) {
+      joinActions.classList.remove('hidden');
+    } else {
+      joinActions.classList.add('hidden');
     }
   }
 
@@ -3442,6 +3506,9 @@ document.getElementById('form-create-user').onsubmit = async (e) => {
     },
     role: isFirstUser ? 'admin' : 'user',
     is_active: 1,
+    company_id: localStorage.getItem('sync-company-id') || SyncService.configCache['sync-company-id'] || null,
+    sync_token: null,
+    device_mode: 'shared',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     deleted: 0
@@ -3962,6 +4029,7 @@ document.getElementById('form-user-settings').onsubmit = async (e) => {
   viewedUser.theme_color = theme;
   viewedUser.role = newRole;
   viewedUser.is_active = newActive;
+  viewedUser.device_mode = document.getElementById('set-device-mode').value;
 
   if (pin && pin.length === 4) {
     viewedUser.pin = await hashPIN(pin);
@@ -4068,8 +4136,27 @@ document.getElementById('btn-team-add-user').onclick = () => {
 
 document.getElementById('btn-show-server-settings').onclick = () => {
   document.getElementById('lock-sync-server-url').value = SyncService.getServerUrl();
+  
+  const mode = localStorage.getItem('sync-connection-mode') || SyncService.configCache['sync-connection-mode'] || 'standalone';
+  document.getElementById('lock-sync-server-mode').value = mode;
+  
+  document.getElementById('lock-sync-company-name').value = '';
+  document.getElementById('lock-sync-company-code').value = localStorage.getItem('sync-company-code') || SyncService.configCache['sync-company-code'] || '';
+  document.getElementById('lock-sync-company-key').value = localStorage.getItem('sync-company-key') || SyncService.configCache['sync-company-key'] || '';
+  
+  document.getElementById('group-company-name').classList.toggle('hidden', mode !== 'create');
+  document.getElementById('group-company-code').classList.toggle('hidden', mode !== 'kiosk');
+  document.getElementById('group-company-key').classList.toggle('hidden', mode !== 'kiosk' && mode !== 'create');
+
   document.getElementById('dlg-server-settings').showModal();
   document.getElementById('btn-close-server-settings')?.focus({ preventScroll: true });
+};
+
+document.getElementById('lock-sync-server-mode').onchange = () => {
+  const mode = document.getElementById('lock-sync-server-mode').value;
+  document.getElementById('group-company-name').classList.toggle('hidden', mode !== 'create');
+  document.getElementById('group-company-code').classList.toggle('hidden', mode !== 'kiosk');
+  document.getElementById('group-company-key').classList.toggle('hidden', mode !== 'kiosk' && mode !== 'create');
 };
 
 // Lock screen language switcher toggles
@@ -4258,6 +4345,7 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
   if (isSyncing) return;
   const saveBtn = document.getElementById('btn-save-server-settings');
   const serverUrl = document.getElementById('lock-sync-server-url').value.trim();
+  const mode = document.getElementById('lock-sync-server-mode').value;
   
   if (!serverUrl) {
     alert(t('alert-valid-url-required'));
@@ -4268,18 +4356,69 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
   saveBtn.textContent = getLanguage() === 'de' ? 'Verbinde...' : 'Connecting...';
 
   SyncService.setServerUrl(serverUrl);
+  
+  storageSetItem('sync-connection-mode', mode);
 
   isSyncing = true;
   updateConnectionBadge();
 
   try {
     if (!idb) {
-      console.log('IndexedDB is null, trying to open now...');
       await dbAdapter.open();
     }
-    const res = await SyncService.sync(dbAdapter);
-    await populateUserSelect();
-    alert(t('alert-connection-success', { count: res.appliedCount }));
+
+    if (mode === 'create') {
+      const name = document.getElementById('lock-sync-company-name').value.trim();
+      const key = document.getElementById('lock-sync-company-key').value.trim();
+      if (!name || !key) {
+        throw new Error(getLanguage() === 'de' ? 'Unternehmensname und Schlüssel sind erforderlich.' : 'Company name and key are required.');
+      }
+      
+      const resp = await fetch(`${serverUrl}/api/companies/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, key })
+      });
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || `Server error: ${resp.statusText}`);
+      }
+      const compData = await resp.json();
+      
+      storageSetItem('sync-connection-mode', 'kiosk');
+      storageSetItem('sync-company-code', compData.code);
+      storageSetItem('sync-company-key', compData.secret_key);
+      storageSetItem('sync-company-name', name);
+      storageSetItem('sync-company-id', compData.company_id);
+
+      alert(t('alert-company-created', { code: compData.code }));
+    } else if (mode === 'kiosk') {
+      const code = document.getElementById('lock-sync-company-code').value.trim().toUpperCase();
+      const key = document.getElementById('lock-sync-company-key').value.trim();
+      if (!code || !key) {
+        throw new Error(getLanguage() === 'de' ? 'Unternehmens-Code und Schlüssel sind erforderlich.' : 'Company code and key are required.');
+      }
+      storageSetItem('sync-company-code', code);
+      storageSetItem('sync-company-key', key);
+    } else {
+      // Standalone
+      storageRemoveItem('sync-company-code');
+      storageRemoveItem('sync-company-key');
+      storageRemoveItem('sync-company-name');
+      storageRemoveItem('sync-company-id');
+    }
+
+    const activeUserId = localStorage.getItem('last-logged-user-id');
+    const activeMode = localStorage.getItem('sync-connection-mode') || 'standalone';
+    
+    if (activeMode === 'kiosk' || activeUserId) {
+      const res = await SyncService.sync(dbAdapter);
+      await populateUserSelect();
+      alert(t('alert-connection-success', { count: res.appliedCount }));
+    } else {
+      alert(t('alert-settings-saved'));
+    }
+
     document.getElementById('dlg-server-settings').close();
   } catch (error) {
     console.error(error);
@@ -4289,6 +4428,131 @@ document.getElementById('btn-save-server-settings').onclick = async () => {
     saveBtn.disabled = false;
     saveBtn.textContent = t('server-btn-save');
     updateConnectionBadge();
+  }
+};
+
+// Company Join & Invitation Event Handlers
+document.getElementById('btn-join-company-trigger').onclick = () => {
+  document.getElementById('join-invite-code').value = '';
+  document.getElementById('dlg-join-company').showModal();
+  document.getElementById('btn-close-join-company')?.focus({ preventScroll: true });
+};
+
+document.getElementById('btn-close-join-company').onclick = () => {
+  document.getElementById('dlg-join-company').close();
+};
+
+document.getElementById('btn-submit-join-company').onclick = async () => {
+  if (!currentUser) return;
+  const inviteCode = document.getElementById('join-invite-code').value.trim().toUpperCase();
+  if (!inviteCode) {
+    alert(getLanguage() === 'de' ? 'Bitte gib einen Einladungscode ein.' : 'Please enter an invite code.');
+    return;
+  }
+
+  const submitBtn = document.getElementById('btn-submit-join-company');
+  submitBtn.disabled = true;
+  submitBtn.textContent = getLanguage() === 'de' ? 'Trete bei...' : 'Joining...';
+
+  try {
+    const serverUrl = SyncService.getServerUrl();
+    if (!serverUrl) {
+      throw new Error(getLanguage() === 'de' ? 'Bitte konfiguriere zuerst eine Server-URL auf dem Sperrbildschirm.' : 'Please configure a server URL on the lock screen first.');
+    }
+
+    const resp = await fetch(`${serverUrl}/api/companies/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        invite_code: inviteCode,
+        user_id: currentUser.id
+      })
+    });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error || `Server error: ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    
+    currentUser.company_id = data.company_id;
+    currentUser.sync_token = data.sync_token;
+    currentUser.role = data.role;
+    currentUser.updated_at = new Date().toISOString();
+
+    await dbAdapter.put('users', currentUser);
+    SyncService.setLastSyncTime('');
+
+    alert(t('alert-company-joined'));
+    document.getElementById('dlg-join-company').close();
+
+    if (isSyncing) return;
+    isSyncing = true;
+    updateConnectionBadge();
+    try {
+      const res = await SyncService.sync(dbAdapter, currentUser);
+      await populateUserSelect();
+      await populateAdminUserSelectors();
+      updateSettingsTab();
+      alert(t('alert-sync-success', { count: res.appliedCount }));
+    } catch (e) {
+      console.error(e);
+      alert(t('alert-sync-failed', { message: e.message }));
+    } finally {
+      isSyncing = false;
+      updateConnectionBadge();
+    }
+
+  } catch (error) {
+    console.error(error);
+    alert(t('alert-connection-failed', { message: error.message }));
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = t('join-btn-submit');
+  }
+};
+
+document.getElementById('btn-generate-invite').onclick = async () => {
+  const serverUrl = SyncService.getServerUrl();
+  const companyKey = localStorage.getItem('sync-company-key') || SyncService.configCache['sync-company-key'];
+  if (!serverUrl || !companyKey) {
+    alert(getLanguage() === 'de' ? 'Verbindungsdaten fehlen.' : 'Connection credentials missing.');
+    return;
+  }
+
+  const inviteBtn = document.getElementById('btn-generate-invite');
+  inviteBtn.disabled = true;
+  inviteBtn.textContent = getLanguage() === 'de' ? 'Generiere...' : 'Generating...';
+
+  try {
+    const resp = await fetch(`${serverUrl}/api/companies/invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${companyKey}`
+      },
+      body: JSON.stringify({ role: 'user' })
+    });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error || `Server error: ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    const displayEl = document.getElementById('invite-code-display');
+    if (displayEl) {
+      displayEl.textContent = data.code;
+      displayEl.classList.remove('hidden');
+      alert(t('alert-invite-generated', { code: data.code }));
+    }
+  } catch (error) {
+    console.error(error);
+    alert(t('alert-connection-failed', { message: error.message }));
+  } finally {
+    inviteBtn.disabled = false;
+    inviteBtn.textContent = t('settings-sync-btn-invite');
   }
 };
 
